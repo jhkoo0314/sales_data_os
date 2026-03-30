@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Data OS - Validation Passport</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'], serif: ['Georgia', 'serif'] },
+                    colors: { brand: { 50: '#f0f9ff', 100: '#e0f2fe', 500: '#0ea5e9', 600: '#0284c7', 900: '#0c4a6e' }, slate: { 50: '#f8fafc', 500: '#64748b', 800: '#1e293b', 900: '#0f172a' } }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #f8fafc; }
+        .stamp-pass { color: rgba(16, 185, 129, 0.4); border: 4px solid rgba(16, 185, 129, 0.4); transform: rotate(-15deg); font-family: 'JetBrains Mono', monospace; font-weight: 800; }
+        .glass-panel { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 1); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden text-slate-800 antialiased font-sans">
+
+    <!-- Global Top Navigation -->
+    <header class="h-16 bg-slate-900 text-white flex items-center justify-between px-6 z-50 shrink-0 border-b border-slate-800">
+        <div class="flex items-center space-x-8">
+            <div class="flex items-center space-x-3">
+                <div class="w-6 h-6 rounded bg-gradient-to-br from-brand-400 to-brand-600"></div>
+                <span class="font-bold text-lg tracking-tight">Sales Data OS</span>
+                <span class="mx-2 text-slate-600">|</span>
+                <span class="text-[11px] font-mono text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded">ENV: PRODUCTION</span>
+            </div>
+        </div>
+        <div class="flex items-center space-x-4">
+            <button class="text-sm font-medium text-slate-300 hover:text-white flex items-center gap-2">
+                <span class="material-symbols-outlined text-[18px]">close</span> Close Passport
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Canvas Area -->
+    <main class="flex-1 overflow-auto bg-slate-50 relative">
+        <div class="max-w-[1100px] mx-auto px-10 py-10">
+            
+            <!-- Context & Navigation Header -->
+            <div class="flex justify-between items-end mb-8">
+                <div>
+                    <h5 class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1">
+                        <span class="material-symbols-outlined text-[14px]">history</span> Post-Run Validation
+                    </h5>
+                    <div class="flex items-center gap-4">
+                        <h1 class="text-4xl font-extrabold tracking-tight text-slate-900">Execution Passport</h1>
+                        
+                        <!-- Sleek History Dropdown Trigger -->
+                        <div class="relative group cursor-pointer mt-1">
+                            <div class="flex items-center gap-2 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm group-hover:border-slate-300 group-hover:bg-slate-50 transition-all text-slate-600">
+                                <span class="text-xs font-bold font-mono group-hover:text-slate-900 transition-colors flex items-center gap-1.5">
+                                    RUN-20260330-01 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                </span>
+                                <span class="material-symbols-outlined text-[16px] text-slate-400">expand_more</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Pagination -->
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-2">Run History</span>
+                    <button class="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 text-slate-400 disabled:opacity-30 disabled:hover:bg-white transition-colors" disabled>
+                        <span class="material-symbols-outlined text-[20px]">chevron_left</span>
+                    </button>
+                    <button class="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 text-slate-600 transition-colors">
+                        <span class="material-symbols-outlined text-[20px]">chevron_right</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Passport Top Block -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden relative mb-8">
+                <!-- Certificate Timestamp Header -->
+                <div class="px-8 py-4 bg-slate-900 text-white flex justify-between items-center border-b border-slate-800">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined text-brand-400 text-[20px]">fingerprint</span>
+                        <h2 class="text-sm font-bold tracking-widest">ID: PRD-RUN-202512-ABX9</h2>
+                    </div>
+                    <div class="text-[11px] font-mono text-slate-400 tracking-wider">
+                        CERTIFIED AT: 2026-03-30 14:45:02 KST
+                    </div>
+                </div>
+
+                <div class="p-8 grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+                    <!-- Absolute Stamp -->
+                    <div class="absolute right-10 top-10 pointer-events-none stamp-pass px-6 py-2 text-4xl hidden md:block z-0">
+                        CLEARED
+                    </div>
+
+                    <!-- Meta Data 1 -->
+                    <div class="relative z-10 w-full">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Execution Mode</p>
+                        <p class="text-lg font-bold text-slate-900">Unified Release</p>
+                        <p class="text-[13px] text-slate-500 mt-1 flex items-center gap-1 font-medium"><span class="material-symbols-outlined text-[14px]">domain</span> Hub: Hangyeol Pharma</p>
+                        <p class="text-xs text-slate-400 mt-1 flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">link</span> CRM + Rx + Sales</p>
+                    </div>
+
+                    <!-- Meta Data 2 -->
+                    <div class="relative z-10">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Target Window</p>
+                        <p class="text-lg font-bold text-slate-900">December 2025</p>
+                        <p class="text-sm text-slate-500 mt-1 font-mono">2025-12-01 ~ 2025-12-31</p>
+                    </div>
+
+                    <!-- Meta Data 3 -->
+                    <div class="relative z-10">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Integrity Score</p>
+                        <div class="flex items-baseline gap-2">
+                            <p class="text-3xl font-black text-emerald-600">99.8<span class="text-sm">%</span></p>
+                        </div>
+                        <p class="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded inline-block">High Fidelity</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detail Grid: Content Rich Data & Action -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                
+                <!-- Col 1 & 2: Variance Stats & Output Artifacts -->
+                <div class="lg:col-span-2 space-y-8">
+                    
+                    <!-- Output Statistical Summary -->
+                    <div>
+                        <h3 class="text-[11px] font-bold tracking-widest text-slate-400 uppercase mb-4 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[16px]">bar_chart</span> Output Data Variance
+                        </h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                                <p class="text-[11px] font-medium text-slate-500 mb-1">Territory Mappings Used</p>
+                                <p class="text-2xl font-bold text-slate-900 font-mono">1,402</p>
+                                <div class="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2">
+                                    <span class="bg-emerald-50 text-emerald-600 text-[10px] font-bold px-1.5 py-0.5 rounded">NEW</span>
+                                    <span class="text-xs text-slate-500">+12 mapped vs last run</span>
+                                </div>
+                            </div>
+                            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                                <p class="text-[11px] font-medium text-slate-500 mb-1">Total Processed Records</p>
+                                <p class="text-2xl font-bold text-slate-900 font-mono">14.2M</p>
+                                <div class="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2">
+                                    <span class="bg-brand-50 text-brand-600 text-[10px] font-bold px-1.5 py-0.5 rounded">VOL</span>
+                                    <span class="text-xs text-slate-500">Normal range (+2.1%)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Generated Artifacts -->
+                    <div>
+                        <h3 class="text-[11px] font-bold tracking-widest text-slate-400 uppercase mb-4 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[16px]">topic</span> Generation Artifacts
+                        </h3>
+                        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                            <div class="divide-y divide-slate-100">
+                                <div class="p-4 flex items-center justify-between hover:bg-slate-50/80 transition-colors">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-[10px]">XLSX</div>
+                                        <div>
+                                            <p class="text-[13px] font-bold text-slate-900">Final_Sales_Report_202512.xlsx</p>
+                                            <p class="text-[11px] text-slate-400 font-mono mt-0.5">3.2 MB • Reporting Output</p>
+                                        </div>
+                                    </div>
+                                    <button class="text-slate-400 hover:text-brand-600"><span class="material-symbols-outlined text-[20px]">download</span></button>
+                                </div>
+                                <div class="p-4 flex items-center justify-between hover:bg-slate-50/80 transition-colors">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-[10px]">PQT</div>
+                                        <div>
+                                            <p class="text-[13px] font-bold text-slate-900">rx_unified_baseline_202512.parquet</p>
+                                            <p class="text-[11px] text-slate-400 font-mono mt-0.5">142 MB • Analytical Payload</p>
+                                        </div>
+                                    </div>
+                                    <button class="text-slate-400 hover:text-brand-600"><span class="material-symbols-outlined text-[20px]">download</span></button>
+                                </div>
+                                <div class="p-4 flex items-center justify-between hover:bg-slate-50/80 transition-colors">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-[10px]">JSON</div>
+                                        <div>
+                                            <p class="text-[13px] font-bold text-slate-900">mapping_exceptions.json</p>
+                                            <p class="text-[11px] text-slate-400 font-mono mt-0.5">12 KB • System Audit Log</p>
+                                        </div>
+                                    </div>
+                                    <button class="text-slate-400 hover:text-brand-600"><span class="material-symbols-outlined text-[20px]">download</span></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Col 3: Editorial Action Panel -->
+                <div class="lg:col-span-1">
+                    <h3 class="text-[11px] font-bold tracking-widest text-slate-400 uppercase mb-4">Final Decision</h3>
+                    
+                    <div class="bg-indigo-950 rounded-2xl p-6 text-white border border-indigo-900 shadow-2xl relative overflow-hidden">
+                        <div class="absolute -right-10 -top-10 w-40 h-40 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+                        <div class="relative z-10">
+                            <h4 class="text-xl font-bold font-serif mb-4 leading-snug">"Data is unified and anomalies are within safe threshold. Ready for distribution."</h4>
+                            <p class="text-sm text-indigo-200/80 font-medium mb-8 leading-relaxed">
+                                Publishing will lock this version into the Master Branch and distribute the payload to BI tools via automated syncer.
+                            </p>
+
+                            <div class="space-y-3">
+                                <button class="w-full bg-brand-500 hover:bg-brand-400 text-white font-bold py-3.5 px-4 rounded-xl transition-all shadow-xl shadow-brand-500/20 flex items-center justify-center gap-2">
+                                    <span class="material-symbols-outlined text-[18px]">publish</span>
+                                    Commit & Publish to BI
+                                </button>
+                                <button class="w-full bg-indigo-950 hover:bg-white/5 border border-indigo-700 text-indigo-300 font-bold py-3.5 px-4 rounded-xl transition-colors text-sm">
+                                    Reject & Discard Run
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- System Audit Trail Link -->
+                    <div class="mt-6 flex items-center gap-2 text-xs font-medium text-slate-400 cursor-pointer hover:text-brand-600 transition-colors">
+                        <span class="material-symbols-outlined text-[16px]">receipt_long</span>
+                        View Full System Execution Audit Trail
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Data OS - Upload & Readiness</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
+                    colors: {
+                        brand: { 50: '#f0f9ff', 100: '#e0f2fe', 500: '#0ea5e9', 600: '#0284c7', 900: '#0c4a6e' },
+                        slate: { 50: '#f8fafc', 500: '#64748b', 800: '#1e293b', 900: '#0f172a' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #0F172A; }
+        .bg-grid { background-size: 40px 40px; background-image: linear-gradient(to right, rgba(15, 23, 42, 0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(15, 23, 42, 0.03) 1px, transparent 1px); }
+        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.9); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04); }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden text-slate-900 antialiased font-sans">
+
+    <!-- Global Top Navigation -->
+    <header class="h-16 bg-slate-900 text-white flex items-center justify-between px-6 z-50 shrink-0 border-b border-slate-800">
+        <div class="flex items-center space-x-8">
+            <div class="flex items-center space-x-3">
+                <div class="w-6 h-6 rounded bg-gradient-to-br from-brand-400 to-brand-600 shadow-[0_0_15px_rgba(14,165,233,0.5)]"></div>
+                <span class="font-bold text-lg tracking-tight">Sales Data OS</span>
+            </div>
+            <nav class="hidden md:flex items-center space-x-1 text-sm font-medium">
+                <a href="#" class="px-3 py-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-md transition-colors">Workspace</a>
+                <a href="#" class="px-3 py-2 text-white bg-white/10 rounded-md transition-colors">Upload</a>
+                <a href="#" class="px-3 py-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-md transition-colors">Pipeline</a>
+                <a href="#" class="px-3 py-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-md transition-colors">Reports</a>
+            </nav>
+        </div>
+        <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-2 bg-slate-800 border border-slate-700/50 rounded-md px-3 py-1.5 cursor-pointer">
+                <div class="w-5 h-5 rounded bg-slate-600 flex items-center justify-center text-[10px] font-bold">H</div>
+                <span class="text-sm font-medium text-slate-200">XP-9920-HYL</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Canvas Area -->
+    <main class="flex-1 overflow-auto bg-slate-50 relative">
+        <div class="absolute inset-0 bg-grid pointer-events-none z-0"></div>
+        <div class="absolute top-0 right-0 w-[500px] h-[500px] bg-brand-100/40 rounded-full blur-[100px] pointer-events-none"></div>
+        
+        <div class="max-w-[1400px] mx-auto px-8 py-10 relative z-10">
+            <!-- Hero Header -->
+            <div class="mb-10 flex items-end justify-between">
+                <div>
+                    <h1 class="text-4xl font-bold tracking-tighter text-slate-900 mb-2">Upload Readiness</h1>
+                    <p class="text-[15px] text-slate-500 font-light tracking-wide">
+                        데이터 인테이크 상태 및 엔진 가동 전 정합성 검토
+                    </p>
+                </div>
+                <button class="bg-slate-900 text-white hover:bg-slate-800 px-6 py-3 rounded-lg text-sm font-semibold transition-all shadow-xl shadow-slate-900/20 flex items-center gap-2">
+                    Start Execution
+                    <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+                </button>
+            </div>
+
+            <!-- Analysis Window Alert (Codex style injected into Cinematic) -->
+            <div class="bg-brand-50/50 border border-brand-200 rounded-xl p-4 mb-6 flex items-center gap-4 relative overflow-hidden">
+                <div class="absolute left-0 top-0 bottom-0 w-1 bg-brand-500"></div>
+                <div class="w-10 h-10 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined">calendar_today</span>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-slate-900">Common Analysis Window: December 2025</h3>
+                    <p class="text-[13px] text-slate-600 mt-0.5">The system has identified <strong class="text-brand-700">December 2025</strong> as the maximum common threshold across all transactional sources (Prescription vs Sales).</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
+                <!-- Left: Detailed Source Cards (Merging Cinematic Matrix & Codex details) -->
+                <div class="col-span-12 lg:col-span-8 flex flex-col gap-6">
+                    <h3 class="text-[11px] font-bold tracking-widest text-slate-400 uppercase mb-2">Source Validation Matrix</h3>
+                    
+                    <div class="grid grid-cols-3 gap-4">
+                        <!-- CRM Master Card -->
+                        <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm relative overflow-hidden group">
+                            <div class="absolute inset-x-0 top-0 h-1 bg-indigo-500"></div>
+                            <div class="flex justify-between items-start mb-6">
+                                <div class="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                                    <span class="material-symbols-outlined text-[20px]">groups</span>
+                                </div>
+                                <span class="bg-slate-100 text-slate-600 text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-slate-200">Master</span>
+                            </div>
+                            <h3 class="text-lg font-bold text-slate-900 leading-tight">CRM Entity & Territory</h3>
+                            <div class="mt-4 space-y-2">
+                                <div class="flex justify-between text-xs text-slate-500">
+                                    <span>Mapping Coverage</span>
+                                    <span class="font-bold text-slate-900">100% Complete</span>
+                                </div>
+                                <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                    <div class="bg-indigo-500 h-full w-full"></div>
+                                </div>
+                                <p class="text-[11px] font-mono text-slate-400 mt-2">Latest: 2026-03-30</p>
+                            </div>
+                        </div>
+
+                        <!-- Prescription Card -->
+                        <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm relative overflow-hidden">
+                            <div class="absolute inset-x-0 top-0 h-1 bg-brand-500"></div>
+                            <div class="flex justify-between items-start mb-6">
+                                <div class="w-10 h-10 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center">
+                                    <span class="material-symbols-outlined text-[20px]">medication</span>
+                                </div>
+                                <span class="bg-brand-50 text-brand-700 text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-brand-200">Transactional</span>
+                            </div>
+                            <h3 class="text-lg font-bold text-slate-900 leading-tight">Prescription <br>Records (UB)</h3>
+                            <div class="mt-4 space-y-2">
+                                <div class="flex justify-between text-xs text-slate-500">
+                                    <span>Coverage Sync</span>
+                                    <span class="font-bold text-slate-900">84% Complete</span>
+                                </div>
+                                <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                    <div class="bg-brand-500 h-full w-[84%]"></div>
+                                </div>
+                                <p class="text-[11px] font-mono text-brand-600 font-bold mt-2">End Date: Dec 2025</p>
+                            </div>
+                        </div>
+
+                        <!-- Sales Output Card -->
+                        <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm relative overflow-hidden">
+                            <div class="absolute inset-x-0 top-0 h-1 bg-emerald-500"></div>
+                            <div class="flex justify-between items-start mb-6">
+                                <div class="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                                    <span class="material-symbols-outlined text-[20px]">timeline</span>
+                                </div>
+                                <span class="bg-brand-50 text-brand-700 text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-brand-200">Transactional</span>
+                            </div>
+                            <h3 class="text-lg font-bold text-slate-900 leading-tight">Sales & <br>Target Goals</h3>
+                            <div class="mt-4 space-y-2">
+                                <div class="flex justify-between text-xs text-slate-500">
+                                    <span>Coverage Sync</span>
+                                    <span class="font-bold text-slate-900">100% Complete</span>
+                                </div>
+                                <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                    <div class="bg-emerald-500 h-full w-full"></div>
+                                </div>
+                                <p class="text-[11px] font-mono text-emerald-600 font-bold mt-2">End Date: June 2026</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Editorial Verdict -->
+                <div class="col-span-12 lg:col-span-4 flex flex-col gap-4 relative">
+                    <h3 class="text-[11px] font-bold tracking-widest text-slate-400 uppercase mb-2">System Verdict</h3>
+                    <div class="flex-1 bg-slate-900 rounded-2xl p-8 relative overflow-hidden border border-slate-800 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.3)]">
+                        <div class="absolute -right-10 -top-10 w-40 h-40 bg-brand-500/20 rounded-full blur-3xl pointer-events-none"></div>
+                        <div class="relative z-10 h-full flex flex-col justify-between">
+                            <div>
+                                <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-amber-500/20 text-amber-500 text-xs font-bold border border-amber-500/30 mb-6 uppercase tracking-wider">
+                                    <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Periodic Sync Warning
+                                </span>
+                                <p class="text-xl text-white font-medium leading-relaxed font-serif tracking-tight">
+                                    "System architecture is mapped, but source periods differ. Validating within common window (Dec 2025)."
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recently Processed Files Table (Codex Detail) -->
+            <div class="w-full bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                    <h2 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[18px] text-slate-400">snippet_folder</span>
+                        Recently Processed Files
+                    </h2>
+                    <button class="text-[11px] font-bold text-brand-600 uppercase tracking-widest hover:text-brand-800 transition-colors">Open Explorer</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 bg-white">
+                                <th class="px-6 py-4">Filename</th>
+                                <th class="px-6 py-4">Type</th>
+                                <th class="px-6 py-4">Size</th>
+                                <th class="px-6 py-4">Upload Context</th>
+                                <th class="px-6 py-4 text-right">Sanity Check</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-[13px] text-slate-600 font-medium divide-y divide-slate-50">
+                            <tr class="hover:bg-slate-50 transition-colors group cursor-pointer">
+                                <td class="px-6 py-4 text-slate-900 font-mono text-[12px] group-hover:text-brand-600 transition-colors">rx_data_raw_202512.parquet</td>
+                                <td class="px-6 py-4">Prescription</td>
+                                <td class="px-6 py-4 text-slate-400 text-xs">1.2 GB</td>
+                                <td class="px-6 py-4 text-slate-400 text-[11px] font-mono">2026-03-30 09:30 KST</td>
+                                <td class="px-6 py-4 text-right">
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded text-[10px] font-bold uppercase tracking-wider">
+                                        <span class="material-symbols-outlined text-[12px]">check</span> Pass
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-slate-50 transition-colors group cursor-pointer">
+                                <td class="px-6 py-4 text-slate-900 font-mono text-[12px] group-hover:text-brand-600 transition-colors">sales_target_v3_final.csv</td>
+                                <td class="px-6 py-4">Sales/Goals</td>
+                                <td class="px-6 py-4 text-slate-400 text-xs">450 MB</td>
+                                <td class="px-6 py-4 text-slate-400 text-[11px] font-mono">2026-03-30 10:15 KST</td>
+                                <td class="px-6 py-4 text-right">
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-600 border border-amber-100 rounded text-[10px] font-bold uppercase tracking-wider">
+                                        <span class="material-symbols-outlined text-[12px]">warning</span> Warn
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-slate-50 transition-colors group cursor-pointer">
+                                <td class="px-6 py-4 text-slate-900 font-mono text-[12px] group-hover:text-brand-600 transition-colors">territory_mapping_delta.json</td>
+                                <td class="px-6 py-4">Master Sync</td>
+                                <td class="px-6 py-4 text-slate-400 text-xs">12.4 MB</td>
+                                <td class="px-6 py-4 text-slate-400 text-[11px] font-mono">2026-03-29 16:45 KST</td>
+                                <td class="px-6 py-4 text-right">
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded text-[10px] font-bold uppercase tracking-wider">
+                                        <span class="material-symbols-outlined text-[12px]">check</span> Pass
+                                    </span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </main>
+</body>
+</html>

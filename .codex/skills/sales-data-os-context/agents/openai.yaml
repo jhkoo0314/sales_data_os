@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sales Data OS Context"
+  short_description: "Preserve Sales Data OS build context"
+  default_prompt: "Use $sales-data-os-context to keep Sales Data OS architecture, runbook rules, and Part2 completion context aligned while building."

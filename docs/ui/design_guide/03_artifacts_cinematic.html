@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Data OS - Operational Artifacts</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                        serif: ['Georgia', 'serif']
+                    },
+                    colors: {
+                        brand: { 50: '#f0f9ff', 100: '#e0f2fe', 500: '#0ea5e9', 600: '#0284c7', 900: '#0c4a6e' },
+                        slate: { 50: '#f8fafc', 500: '#64748b', 800: '#1e293b', 900: '#0f172a' }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="flex flex-col h-screen overflow-hidden text-slate-800 antialiased font-sans bg-slate-50">
+
+    <!-- Global Top Navigation -->
+    <header class="h-16 bg-slate-900 text-white flex items-center justify-between px-6 z-50 shrink-0 border-b border-slate-800">
+        <div class="flex items-center space-x-8">
+            <div class="flex items-center space-x-3">
+                <div class="w-6 h-6 rounded bg-gradient-to-br from-brand-400 to-brand-600"></div>
+                <span class="font-bold text-lg tracking-tight">Sales Data OS</span>
+            </div>
+            
+            <!-- Global Tab Navigation -->
+            <nav class="flex items-center space-x-1">
+                <a href="workspace_cinematic.html" class="px-3 py-1.5 text-sm font-medium text-slate-400 hover:text-white rounded-md transition-colors">Workspace</a>
+                <a href="pipeline_cinematic.html" class="px-3 py-1.5 text-sm font-medium text-slate-400 hover:text-white rounded-md transition-colors">Pipeline</a>
+                <a href="artifacts_cinematic.html" class="px-3 py-1.5 text-sm font-bold text-brand-400 bg-slate-800 rounded-md transition-colors flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[16px]">topic</span> Artifacts
+                </a>
+            </nav>
+        </div>
+        <div class="flex items-center space-x-4">
+            <span class="text-[11px] font-mono text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded">ENV: PRODUCTION</span>
+        </div>
+    </header>
+
+    <!-- Main Canvas Area -->
+    <main class="flex-1 overflow-auto relative">
+        <div class="max-w-[1400px] mx-auto px-10 py-10">
+
+            <!-- Context Board (Requirement #1) -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-8 flex flex-wrap lg:flex-nowrap justify-between items-start gap-8 relative overflow-hidden">
+                <div class="absolute right-0 top-0 bottom-0 w-64 bg-slate-50 border-l border-slate-100 flex items-center justify-center p-6 text-center z-0">
+                    <span class="text-slate-200 material-symbols-outlined text-8xl rotate-12">manage_search</span>
+                </div>
+
+                <div class="relative z-10 flex grow items-center gap-12">
+                    <!-- Company Context -->
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Target Workspace</p>
+                        <h2 class="text-2xl font-extrabold text-slate-900 tracking-tight">Hangyeol Pharma</h2>
+                        <p class="text-[11px] font-mono text-slate-500 mt-1">KEY: HG_RX_PROD_01</p>
+                    </div>
+
+                    <!-- Run Context -->
+                    <div class="h-10 w-px bg-slate-200"></div>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1">Selected Run <span class="material-symbols-outlined text-[12px]">expand_more</span></p>
+                        <h3 class="text-xl font-bold font-mono text-brand-600">RUN-20260330-01</h3>
+                        <p class="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span> 
+                            <span class="font-bold text-emerald-600">CLEARED</span>
+                        </p>
+                    </div>
+
+                    <div class="h-10 w-px bg-slate-200"></div>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Execution Mode</p>
+                        <p class="text-[14px] font-bold text-slate-800">Unified Release</p>
+                        <p class="text-[11px] text-slate-500 mt-1">Prod DB Append</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Page Title & Explanation Layer (Requirement #7, #9) -->
+            <div class="mb-8">
+                <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 mb-2">Operational Artifacts</h1>
+                <p class="text-sm font-medium text-slate-500 border-l-2 border-brand-500 pl-3 max-w-3xl">
+                    Artifacts are internal machine-facing outputs, structured intermediate payloads, and system exception logs generated during the pipeline execution. <br>
+                    <b class="text-slate-700">These are not human-facing final reports.</b> Use this view to trace data lineages, investigate validation exceptions, and audit physical files produced by each stage.
+                </p>
+            </div>
+
+            <!-- Search, Filter & Controls (Requirement #6) -->
+            <div class="flex items-center justify-between mb-6 pb-6 border-b border-slate-200">
+                <div class="flex items-center gap-4">
+                    <!-- Search -->
+                    <div class="relative">
+                        <span class="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-[18px]">search</span>
+                        <input type="text" placeholder="Search by artifact name..." class="pl-10 pr-4 py-2 w-72 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 shadow-sm tracking-wide">
+                    </div>
+                    <!-- Stage Filter -->
+                    <select class="bg-white border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-brand-500 focus:border-brand-500 block p-2 shadow-sm font-medium">
+                        <option value="">All Stages</option>
+                        <option value="intake">Intake</option>
+                        <option value="validation">Validation</option>
+                        <option value="territory">Territory</option>
+                        <option value="sandbox">Sandbox</option>
+                        <option value="prescription">Prescription</option>
+                    </select>
+                    <!-- Type Filter -->
+                    <select class="bg-white border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-brand-500 focus:border-brand-500 block p-2 shadow-sm font-medium">
+                        <option value="">All Formats</option>
+                        <option value="json">JSON (Logs/Meta)</option>
+                        <option value="parquet">Parquet (Payload)</option>
+                        <option value="xlsx">XLSX (Export)</option>
+                    </select>
+                </div>
+
+                <div class="bg-slate-100 p-1 rounded-lg inline-flex">
+                    <button class="px-3 py-1.5 text-xs font-bold bg-white shadow-sm rounded border border-slate-200 text-slate-800">Current Run</button>
+                    <button class="px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-slate-800">All Recent</button>
+                </div>
+            </div>
+
+            <!-- Empty State Example (Requirement #8) - Displayed as commented out or hidden -->
+            <!-- 
+            <div class="bg-white border border-slate-200 border-dashed rounded-xl p-16 text-center">
+                <span class="material-symbols-outlined text-6xl text-slate-300 mb-4">folder_off</span>
+                <h3 class="text-lg font-bold text-slate-900">No Artifacts Generated Yet</h3>
+                <p class="text-sm text-slate-500 mt-2 max-w-sm mx-auto">This run is currently in the Intake stage. Artifacts will appear here as the payload progresses through downstream pipeline modules.</p>
+            </div> 
+            -->
+
+            <!-- Artifacts List (Requirement #2, #3, #4, #5) -->
+            <div class="space-y-4">
+                
+                <!-- Artifact Item: validation_summary.json -->
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden group hover:border-slate-300 transition-colors">
+                    <div class="p-5 flex items-start gap-4">
+                        <div class="w-12 h-12 shrink-0 rounded-lg flex items-center justify-center bg-slate-100 text-slate-500 font-bold text-xs uppercase shadow-inner border border-slate-200">
+                            JSON
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <!-- Upper metadata -->
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-[10px] font-bold tracking-widest uppercase bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">Validation</span>
+                                <span class="text-[10px] font-mono font-medium text-slate-400">Mar 30, 14:40:12</span>
+                                <span class="text-[10px] font-medium text-slate-400">• Size: 45 KB</span>
+                            </div>
+                            <!-- Title Row -->
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <h4 class="text-[15px] font-bold font-mono text-slate-900 group-hover:text-brand-600 transition-colors">validation_summary.json</h4>
+                                    <p class="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">System audit trace of initial data type validation. Important for investigating intake rejections. <strong class="text-slate-600 font-medium">Safe to ignore if run passed.</strong></p>
+                                </div>
+                                <!-- Status Badge -->
+                                <div class="shrink-0 flex items-center gap-1 bg-white border border-slate-200 px-2 py-1 rounded shadow-sm">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Audit / Reference Only</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Actions -->
+                        <div class="shrink-0 flex flex-col gap-2 ml-4 border-l border-slate-100 pl-4">
+                            <button class="w-full flex items-center justify-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 text-[11px] font-bold py-1.5 px-3 rounded transition-colors shadow-sm">
+                                <span class="material-symbols-outlined text-[14px]">visibility</span> View
+                            </button>
+                            <div class="flex gap-2">
+                                <button class="flex-1 flex items-center justify-center bg-white hover:bg-slate-50 border border-slate-200 text-slate-500 hover:text-brand-600 text-[11px] py-1 px-2 rounded transition-colors" title="Download File">
+                                    <span class="material-symbols-outlined text-[16px]">download</span>
+                                </button>
+                                <button class="flex-1 flex items-center justify-center bg-white hover:bg-slate-50 border border-slate-200 text-slate-500 hover:text-brand-600 text-[11px] py-1 px-2 rounded transition-colors" title="Copy DB Path">
+                                    <span class="material-symbols-outlined text-[16px]">content_copy</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Artifact Item: mapping_exceptions.json (Warning) -->
+                <div class="bg-amber-50/30 rounded-xl border border-amber-200 shadow-sm overflow-hidden group hover:border-amber-300 transition-colors">
+                    <div class="p-5 flex items-start gap-4">
+                        <div class="w-12 h-12 shrink-0 rounded-lg flex items-center justify-center bg-white text-amber-600 font-bold text-xs uppercase shadow-sm border border-amber-200">
+                            JSON
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <!-- Upper metadata -->
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-[10px] font-bold tracking-widest uppercase bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">Territory</span>
+                                <span class="text-[10px] font-mono font-medium text-slate-400">Mar 30, 14:41:05</span>
+                                <span class="text-[10px] font-medium text-slate-400">• Size: 12 KB</span>
+                            </div>
+                            <!-- Title Row -->
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <h4 class="text-[15px] font-bold font-mono text-slate-900 group-hover:text-brand-600 transition-colors">mapping_exceptions.json</h4>
+                                    <p class="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">Contains 18 unmapped clinic IDs that fell back to 'Unknown Region'. <strong class="text-amber-600 font-medium">Requires investigation for operational accuracy.</strong></p>
+                                </div>
+                                <!-- Status Badge -->
+                                <div class="shrink-0 flex items-center gap-1 bg-amber-50 border border-amber-200 px-2 py-1 rounded shadow-sm">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                    <span class="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Generated w/ Warning</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Actions -->
+                        <div class="shrink-0 flex flex-col gap-2 ml-4 border-l border-amber-100 pl-4">
+                            <button class="w-full flex items-center justify-center gap-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 text-[11px] font-bold py-1.5 px-3 rounded transition-colors shadow-sm">
+                                <span class="material-symbols-outlined text-[14px]">warning</span> Inspect
+                            </button>
+                            <div class="flex gap-2">
+                                <button class="flex-1 flex items-center justify-center bg-white hover:bg-slate-50 border border-slate-200 text-slate-500 hover:text-brand-600 text-[11px] py-1 px-2 rounded transition-colors" title="Download File">
+                                    <span class="material-symbols-outlined text-[16px]">download</span>
+                                </button>
+                                <button class="flex-1 flex items-center justify-center bg-white hover:bg-slate-50 border border-slate-200 text-slate-500 hover:text-brand-600 text-[11px] py-1 px-2 rounded transition-colors" title="Copy DB Path">
+                                    <span class="material-symbols-outlined text-[16px]">content_copy</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Artifact Item: rx_unified_baseline_202512.parquet -->
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden group hover:border-slate-300 transition-colors">
+                    <div class="p-5 flex items-start gap-4">
+                        <div class="w-12 h-12 shrink-0 rounded-lg flex items-center justify-center bg-brand-50 text-brand-600 font-bold text-xs uppercase shadow-sm border border-brand-100">
+                            PQT
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <!-- Upper metadata -->
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-[10px] font-bold tracking-widest uppercase bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">Prescription</span>
+                                <span class="text-[10px] font-mono font-medium text-slate-400">Mar 30, 14:43:22</span>
+                                <span class="text-[10px] font-medium text-slate-400">• Size: 142 MB</span>
+                            </div>
+                            <!-- Title Row -->
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <h4 class="text-[15px] font-bold font-mono text-slate-900 group-hover:text-brand-600 transition-colors">rx_unified_baseline_202512.parquet</h4>
+                                    <p class="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">Columnar compressed payload containing clean, unified Rx data. <strong class="text-emerald-600 font-medium">Core analytical artifact synced to Data Warehouse.</strong></p>
+                                </div>
+                                <!-- Status Badge -->
+                                <div class="shrink-0 flex items-center gap-1 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded shadow-sm">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    <span class="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">Final Input to Next Stage</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Actions -->
+                        <div class="shrink-0 flex flex-col gap-2 ml-4 border-l border-slate-100 pl-4">
+                            <button class="w-full flex items-center justify-center gap-1.5 bg-brand-500 hover:bg-brand-600 text-white text-[11px] font-bold py-1.5 px-3 rounded transition-colors shadow-sm">
+                                <span class="material-symbols-outlined text-[14px]">download</span> Download
+                            </button>
+                            <div class="flex gap-2">
+                                <button class="flex-1 flex items-center justify-center bg-white hover:bg-slate-50 border border-slate-200 text-slate-500 hover:text-brand-600 text-[11px] py-1 px-2 rounded transition-colors" title="Download Metadata">
+                                    <span class="material-symbols-outlined text-[16px]">info</span>
+                                </button>
+                                <button class="flex-1 flex items-center justify-center bg-white hover:bg-slate-50 border border-slate-200 text-slate-500 hover:text-brand-600 text-[11px] py-1 px-2 rounded transition-colors" title="Copy DB Path">
+                                    <span class="material-symbols-outlined text-[16px]">content_copy</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Artifact Item: builder_input_payload.json (Missing) -->
+                <div class="bg-rose-50/20 rounded-xl border border-rose-100 shadow-sm overflow-hidden group opacity-70 cursor-not-allowed">
+                    <div class="p-5 flex items-start gap-4">
+                        <div class="w-12 h-12 shrink-0 rounded-lg flex items-center justify-center bg-slate-50 text-slate-400 font-bold text-xs uppercase border border-slate-200 border-dashed">
+                            JSON
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <!-- Upper metadata -->
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-[10px] font-bold tracking-widest uppercase bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">Builder-Input</span>
+                                <span class="text-[10px] font-mono font-medium text-slate-400">Not Generated</span>
+                                <span class="text-[10px] font-medium text-slate-400">• Size: --</span>
+                            </div>
+                            <!-- Title Row -->
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <h4 class="text-[15px] font-bold font-mono text-slate-400">builder_input_payload.json</h4>
+                                    <p class="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">Target payload for external system consumption. Did not trigger because run stopped at Prescription stage.</p>
+                                </div>
+                                <!-- Status Badge -->
+                                <div class="shrink-0 flex items-center gap-1 bg-white border border-rose-200 px-2 py-1 rounded shadow-sm">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                                    <span class="text-[10px] font-bold text-rose-500 uppercase tracking-widest">Missing</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Actions -->
+                        <div class="shrink-0 flex flex-col justify-center ml-4 border-l border-slate-100 pl-4 w-28">
+                             <button disabled class="w-full flex items-center justify-center gap-1.5 bg-slate-50 border border-slate-200 text-slate-300 text-[11px] font-bold py-1.5 px-3 rounded shadow-sm cursor-not-allowed">
+                                Unavailable
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            
+            <div class="mt-8 text-center border-t border-slate-200 pt-8 pb-4">
+                <p class="text-[11px] text-slate-400 tracking-wide">END OF ARTIFACT LOG FOR RUN-20260330-01</p>
+            </div>
+
+        </div>
+    </main>
+</body>
+</html>
