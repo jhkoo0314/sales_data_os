@@ -1,0 +1,25 @@
+name: salesos-py313
+channels:
+  - conda-forge
+dependencies:
+  - python=3.13
+  - pip
+  - pandas
+  - pyarrow
+  - numpy
+  - openpyxl
+  - python-dateutil
+  - chardet
+  - jinja2
+  - pytest
+  - pip:
+      - supabase
+      - pydantic
+      - python-dotenv
+      - httpx
+      - tenacity
+      - loguru
+      - orjson
+      - pandera
+      - playwright
+      - ruff

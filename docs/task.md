@@ -50,7 +50,7 @@
    영업 데이터 운영 체계다.
 2. 가장 중요한 것은 역할 분리다.
    KPI 계산은 KPI 엔진,
-   검증과 전달 판단은 OPS,
+   검증과 전달 판단은 validation,
    표현은 Builder,
    웹은 입력/실행/조회/설명을 맡아야 한다.
 3. 업로드는 시작일 뿐이다.
@@ -271,19 +271,47 @@ sales_os/
 
 ## 9. 1차 구현 범위
 
-문서 기준으로 실제 첫 개발 범위는 아래 다섯 개가 맞다.
+문서 기준으로 기본 화면 뼈대는 이미 한 번 구현되었다.
+따라서 이제 1차 구현 범위의 우선순위는
+`화면 추가`보다
+`백엔드 엔진 설계`
+가 먼저다.
 
-1. 회사 선택
-2. Upload 화면
-3. Pipeline 화면
-4. run 상태 확인
-5. Reports 목록
+현재 기준 실제 첫 개발 범위는 아래 두 축으로 본다.
 
-이 다섯 개가 되면
-`운영 핵심 흐름`이 웹에서 처음으로 성립한다.
+### 화면 축
 
-이 다섯 개는 단순 메뉴 목록이 아니라,
-기존 운영 체계의 핵심 흐름을 웹에서 다시 성립시키는 최소 단위다.
+- Workspace
+- Upload
+- Pipeline
+- Artifacts
+- Reports
+- Run Detail
+- Agent
+
+이 화면들은 현재 기본 뼈대가 마련된 상태다.
+
+### 엔진 축
+
+- Input Intake
+- Pre-Normalization Validation
+- Adapter / Normalization
+- KPI Engine
+- Validation
+- Result Asset / Payload
+- Builder 입력 계약
+
+즉 지금부터의 핵심 일은
+`화면을 더 늘리는 것`이 아니라
+`기본 화면 뒤에서 실제로 돌아갈 엔진 흐름을 먼저 설계하는 것`
+이다.
+
+화면은 이미 시작점이 생겼고,
+이제는 백엔드 설계를 통해
+진짜 운영 체계를 고정해야 한다.
+
+이 단계는 단순 메뉴 목록이 아니라,
+기존 운영 체계의 실제 동작 순서를 웹/worker 구조 위에 다시 성립시키는 최소 단위다.
 
 ## 10. 화면별 상세 구현 계획
 
@@ -554,7 +582,7 @@ sales_os/
 
 ## 16. 구현 순서
 
-### Phase A. 기반 고정
+### [x] Phase A. 기반 고정
 
 - 루트 폴더에서 `pnpm`으로 Next.js 프로젝트 시작
 - TypeScript / Tailwind / ESLint / Prettier 설정
@@ -563,7 +591,7 @@ sales_os/
 - 기본 폴더 구조 생성
 - 라우트 뼈대 생성
 
-### Phase B. 앱 프레임과 디자인 베이스
+### [x] Phase B. 앱 프레임과 디자인 베이스
 
 - App Shell
 - Sidebar
@@ -571,7 +599,7 @@ sales_os/
 - Company Context Bar
 - 상태 배지 / 카드 / 스켈레톤 컴포넌트
 
-### Phase C. 운영 진입 흐름
+### [ ] Phase C. 운영 진입 흐름
 
 - Company Switcher
 - Upload
@@ -582,7 +610,7 @@ sales_os/
 단순 빈 카드 배치가 아니라
 운영 설명과 판단 문장이 들어갈 자리까지 같이 만드는 것이다.
 
-### Phase D. 실행 추적과 결과 해석
+### [ ] Phase D. 실행 추적과 결과 해석
 
 - Run Detail
 - run selector / run switcher
@@ -590,13 +618,13 @@ sales_os/
 - WARN/FAIL 설명 문장
 - 근거 수치 / evidence 영역
 
-### Phase E. 최종 결과물 탐색
+### [ ] Phase E. 최종 결과물 탐색
 
 - Reports
 - Artifacts
 - 보고서 / 산출물 연결
 
-### Phase F. 데이터 연결
+### [ ] Phase F. 데이터 연결
 
 - companies
 - uploads + storage
@@ -604,26 +632,26 @@ sales_os/
 - reports
 - Supabase 타입 연결
 
-### Phase G. 실행 엔진 연결
+### [ ] Phase G. 실행 엔진 연결
 
 - Python polling worker
 - run step 상태 기록
 - worker 상태 전환
 - 결과 메타 저장
 
-### Phase H. 보조 기능 확장
+### [ ] Phase H. 보조 기능 확장
 
 - 예시 HTML 기반 스타일 정교화
 - Artifacts / Admin 확장
 
-### Phase I. Agent 구현
+### [ ] Phase I. Agent 구현
 
 - run 기준 질문/응답 화면
 - 근거 artifact 연결
 - 대화 흐름 설계
 - 결과 해석 보조 UX
 
-### Phase J. 운영 안정화
+### [ ] Phase J. 운영 안정화
 
 - 에러/로딩/테스트 정리
 - 운영 품질 정리
@@ -636,7 +664,7 @@ sales_os/
 `어떤 것은 나중으로 미뤄도 되는지`
 를 빠르게 판단할 수 있다.
 
-### Phase A. 기반 고정
+### [x] Phase A. 기반 고정
 
 목적:
 
@@ -658,7 +686,7 @@ sales_os/
 
 - 다음 Phase에서 바로 코드 작업 가능
 
-### Phase B. 앱 프레임과 디자인 베이스
+### [x] Phase B. 앱 프레임과 디자인 베이스
 
 목적:
 
@@ -680,7 +708,7 @@ sales_os/
 
 - 어느 페이지를 붙여도 같은 제품처럼 보이는 기반이 생김
 
-### Phase C. 운영 진입 흐름
+### [ ] Phase C. 운영 진입 흐름
 
 목적:
 
@@ -708,8 +736,11 @@ sales_os/
 완료 기준:
 
 - 회사 선택 -> 업로드 확인 -> 실행 진입 흐름이 웹에서 가능
+- 현재는 기본 뼈대가 이미 있으므로,
+  이 Phase는 신규 화면 생성보다
+  백엔드 엔진 연결을 받을 준비 상태로 보는 것이 맞다
 
-### Phase D. 실행 추적과 결과 해석
+### [ ] Phase D. 실행 추적과 결과 해석
 
 목적:
 
@@ -735,7 +766,7 @@ sales_os/
 
 - 사용자가 특정 run을 열고 무슨 일이 있었는지 이해할 수 있음
 
-### Phase E. 최종 결과물 탐색
+### [ ] Phase E. 최종 결과물 탐색
 
 목적:
 
@@ -761,7 +792,7 @@ sales_os/
 
 - run 결과에서 실제 보고서와 산출물로 자연스럽게 이동 가능
 
-### Phase F. 데이터 연결
+### [ ] Phase F. 데이터 연결
 
 목적:
 
@@ -784,7 +815,7 @@ sales_os/
 
 - 주요 페이지가 실제 Supabase 데이터로 동작
 
-### Phase G. 실행 엔진 연결
+### [ ] Phase G. 실행 엔진 연결
 
 목적:
 
@@ -801,7 +832,7 @@ sales_os/
 
 - 웹에서 실행 시작 후 실제 run이 worker로 처리됨
 
-### Phase H. 보조 기능 확장
+### [ ] Phase H. 보조 기능 확장
 
 목적:
 
@@ -819,7 +850,7 @@ sales_os/
 
 - 핵심 운영 흐름 밖의 관리 기능까지 제품 형태를 갖춤
 
-### Phase I. Agent 구현
+### [ ] Phase I. Agent 구현
 
 목적:
 
@@ -845,7 +876,7 @@ sales_os/
 
 - 사용자가 특정 run 기준으로 질문하고, 근거와 함께 해석을 받을 수 있음
 
-### Phase J. 운영 안정화
+### [ ] Phase J. 운영 안정화
 
 목적:
 
@@ -889,6 +920,266 @@ sales_os/
 디자인 HTML 4개만으로는 전체 범위가 끝난 것이 아니고,
 최소한 `Run Detail`, `Reports`, `Artifacts`까지는 구현 계획 안에 포함되어 있어야 한다.
 
+## 16-3. 백엔드 엔진 구현 Phase
+
+위의 `Phase A~J`는 화면과 제품 작업 순서다.
+하지만 이 프로젝트의 본질은 화면보다
+`Sales Data OS 엔진`
+이기 때문에,
+실제 구현은 아래 엔진 Phase를 병행해야 한다.
+
+### 백엔드 공식 흐름
+
+이제부터 백엔드 공식 흐름은 아래 순서로 고정한다.
+
+`입력 -> 검증 -> 정규화 -> KPI 계산 -> Validation -> Result Asset / Payload -> Builder`
+
+주의:
+
+- 여기서 앞단 `검증`은 파일/컬럼/기간/필수값 점검 성격이다
+- 뒤쪽 `Validation`은 KPI 계산 이후의 전달 판단 레이어다
+- 둘은 이름이 비슷해도 역할이 다르다
+
+### [ ] Engine 1. 입력 수용 / Input Intake
+
+언제:
+
+- 화면 기준 `Phase C`와 동시에 시작
+
+왜 먼저인가:
+
+- Upload 화면이 단순 파일 업로드가 아니라
+  `필수 입력 확인`, `자동 수정`, `기간 차이`, `공통 분석 구간`, `진행 가능 여부`
+  를 설명해야 하기 때문
+
+핵심 구현:
+
+- 파일 수신
+- 파일 메타 저장
+- source 구분
+- 회사/run 문맥 연결
+- 원본(raw) 보관
+- 업로드 세션 단위 정리
+
+완료 기준:
+
+- 원본 데이터가 intake 단계로 안정적으로 들어올 수 있음
+
+### [ ] Engine 2. 입력 검증 / Pre-Normalization Validation
+
+언제:
+
+- `Engine 1` 바로 다음
+
+왜 이 시점인가:
+
+- 정규화 전에 먼저 입력이 읽을 수 있는 상태인지 확인해야 하기 때문
+- raw를 바로 adapter나 KPI로 넘기면 기준이 흔들릴 수 있음
+
+핵심 구현:
+
+- 필수 파일 존재 여부 판정
+- 컬럼 존재 여부 점검
+- 타입/형식 sanity check
+- 날짜/월 범위 점검
+- source별 기간 계산
+- 공통 분석 가능 구간 계산
+- 자동 수정 가능 항목과 사람 검토 필요 항목 분리
+- intake verdict 생성
+
+완료 기준:
+
+- Upload 화면이 실제 intake 판단 결과를 보여줄 수 있음
+- 어떤 입력이 왜 진행 가능/불가인지 설명 가능
+
+### [ ] Engine 3. 정규화 / Adapter Layer
+
+언제:
+
+- `Engine 2` 다음
+
+왜 이 시점인가:
+
+- 검증된 raw만 공통 스키마로 바꾸는 것이 안전하기 때문
+
+왜 이 시점인가:
+
+- 정규화가 끝나야 KPI 계산이 모듈 공통 기준으로 들어갈 수 있음
+
+핵심 구현:
+
+- raw -> 표준 스키마 adapter 연결
+- source별 공통 필드 매핑
+- 표준 row 구조 생성
+- 정규화 결과 저장
+
+완료 기준:
+
+- KPI 엔진이 읽는 입력 구조가 회사별 차이 없이 통일됨
+
+### [ ] Engine 4. KPI Engine + Result Asset Base
+
+언제:
+
+- `Engine 3` 다음, `Phase C ~ Phase D`와 병행
+
+왜 이 시점인가:
+
+- KPI는 단일 소스라서 초반부터 기준을 고정해야 함
+- 나중에 프론트 임시 계산이나 중복 계산이 들어가면 구조가 무너짐
+
+핵심 구현:
+
+- `modules/kpi/*` 엔진 연결
+- 전체 `9개 모듈` 기준 경계 고정
+- 겉으로 드러나는 `5개 모듈`
+  - `CRM`
+  - `Sandbox`
+  - `Prescription`
+  - `Territory`
+  - `RADAR`
+  기준으로 결과 흐름 정리
+- 내부 엔진 `intake / kpi / validation / builder` 경계 고정
+- 계산 결과를 모듈별 Result Asset 초안으로 생성
+- 다음 단계가 재계산 없이 소비할 수 있게 구조화
+
+완료 기준:
+
+- 파이프라인 실행 시 공식 KPI 엔진과 Result Asset 생성 흐름이 존재함
+
+### [ ] Engine 5. Validation Layer
+
+언제:
+
+- `Engine 4` 바로 다음, `Phase D`와 강하게 연결
+
+왜 이 시점인가:
+
+- validation은 후처리 부가기능이 아니라
+  결과를 다음 단계로 넘길지 판단하는 관문이기 때문
+
+핵심 구현:
+
+- `modules/validation/*` 연결
+- 품질 검증
+- 매핑 검증
+- 전달 가능 여부 판단
+- WARN / FAIL reason 생성
+- `pipeline_run_steps`에 단계별 판정 기록
+
+완료 기준:
+
+- Run Detail에 표시되는 WARN/FAIL 이유와 근거가 실제 validation 결과에서 옴
+
+### [ ] Engine 6. Result Asset / Payload Assembly
+
+언제:
+
+- `Engine 5` 다음
+
+왜 이 시점인가:
+
+- Builder는 검증 끝난 payload만 읽어야 하기 때문
+
+핵심 구현:
+
+- validation 통과 결과 조합
+- Builder 입력용 payload 생성
+- 보고서별 payload 분기
+- artifact / report 메타 연결
+
+완료 기준:
+
+- Builder가 raw나 KPI 엔진이 아니라 payload만 읽게 됨
+
+### [ ] Engine 7. Intelligence / RADAR
+
+언제:
+
+- `Engine 1~6` 안정화 이후
+
+왜 뒤인가:
+
+- RADAR는 KPI 재계산기가 아니라
+  검증 승인된 결과 자산 위에서 신호를 잡는 레이어이기 때문
+
+핵심 구현:
+
+- signal detection
+- issue prioritization
+- decision option 템플릿화
+
+완료 기준:
+
+- validation 통과 결과를 바탕으로 추가 인사이트를 생성할 수 있음
+
+### [ ] Engine 8. Builder
+
+언제:
+
+- `Engine 6` 이후, `Reports` 완성 직전/직후
+
+왜 마지막인가:
+
+- Builder는 계산 금지
+- 이미 만들어진 payload를 읽어 최종 표현만 담당하기 때문
+
+핵심 구현:
+
+- HTML/PDF 보고서 렌더
+- 최종 전달물 생성
+- Reports 페이지 연결
+
+완료 기준:
+
+- Reports 화면이 실제 Builder 결과물을 열 수 있음
+
+### [ ] Engine 9. Python Worker Runtime
+
+언제:
+
+- `Engine 1~6`과 병행해서 조기 시작
+
+왜 조기 시작인가:
+
+- 입력, 검증, 정규화, KPI, validation, payload 생성을 결국 worker가 묶어서 실행해야 하기 때문
+
+핵심 구현:
+
+- `workers/run_worker.py`
+- `workers/services/run_executor.py`
+- `workers/services/status_updater.py`
+- 필요 라이브러리 설치
+- Supabase polling
+- `pending -> running -> completed/failed`
+- 중간 step 상태 저장
+
+완료 기준:
+
+- 웹에서 run을 만들면 Python worker가 실제 엔진 순서를 실행함
+
+## 16-4. Python 라이브러리 설치 시점
+
+Python 관련 라이브러리는
+`마지막에 한 번에`가 아니라
+`Engine 1` 착수 시점부터 같이 들어가야 한다.
+
+이유:
+
+- intake / KPI / validation / builder가 전부 Python 실행 자산과 연결되기 때문
+- worker 파일만 만들고 라이브러리를 나중에 넣으면 실제 실행 검증이 늦어진다
+
+권장 시점:
+
+1. `Engine 1` 시작할 때 Python 가상환경/패키지 기준 확정
+2. `Engine 2` 들어가기 전에 KPI/데이터 처리 관련 패키지 설치
+3. `Engine 5` 직전에 보고서 렌더 관련 패키지 설치 또는 정리
+
+즉,
+`화면은 가볍게 먼저 만들 수 있어도`
+`Python 의존성은 초반부터 같이 관리`
+하는 것이 맞다.
+
 ## 17. 작업 단위 분해
 
 개발자는 아래 단위로 쪼개면 바로 작업하기 쉽다.
@@ -910,22 +1201,33 @@ sales_os/
 - Supabase 클라이언트 기본 구조
 - API 래퍼 기본 구조
 
-### 작업 묶음 3. 회사 문맥
+### 작업 묶음 3. 백엔드 엔진 설계 우선
+
+- input intake 데이터 계약
+- pre-validation 결과 구조
+- normalization schema
+- KPI engine 입출력 구조
+- validation 결과 구조
+- builder payload contract
+- run step 상태 모델
+
+### 작업 묶음 4. 회사 문맥
 
 - 회사 목록 Supabase 연결
 - 회사 선택기
 - 현재 회사 store
 
-### 작업 묶음 4. Upload
+### 작업 묶음 5. Upload + Intake 연결
 
 - 업로드 UI
 - 업로드 목록 UI
 - Supabase Storage 업로드 연결
-- 상태 매핑
+- input intake 연결
+- pre-validation 상태 매핑
 - intake 설명 UI
 - 기간 차이 안내 UI
 
-### 작업 묶음 5. Pipeline
+### 작업 묶음 6. Pipeline + 엔진 접수
 
 - 모드 선택 UI
 - run 생성
@@ -933,14 +1235,15 @@ sales_os/
 - 현재 run 카드
 - 실행 가능/불가 사유 문장
 
-### 작업 묶음 6. Worker
+### 작업 묶음 7. Worker Orchestration
 
 - `pending` run 조회
 - `running` 상태 전환
+- input -> 검증 -> 정규화 -> KPI -> validation -> payload 순서 실행
 - 단계 상태 기록
 - 완료/실패 업데이트
 
-### 작업 묶음 7. Results
+### 작업 묶음 8. Results
 
 - run 상세
 - run selector / run switcher
@@ -1011,12 +1314,12 @@ sales_os/
 
 가장 바로 이어서 해야 할 일은 아래다.
 
-1. 루트 폴더에서 `pnpm` 기반 Next.js 기본 세팅
-2. Supabase 프로젝트 연결과 환경변수 세팅
-3. Python worker 기본 파일 구조 생성
-4. App Shell 스켈레톤 생성
-5. 회사 선택 + Upload + Pipeline 3개 화면 뼈대 생성
-6. 사용자가 제공할 예시 HTML 디자인 파일 분석 후 공통 UI 토큰 반영
+1. `Engine 1~3` 기준 백엔드 데이터 계약 먼저 고정
+2. input intake / pre-validation / normalization 경계 정의
+3. KPI engine 입력 구조와 result asset 초안 정의
+4. validation 출력 구조와 run step 상태 모델 정의
+5. builder payload contract 정의
+6. 그 다음 Supabase 테이블과 Python worker 구조를 맞춤
 
 이 순서로 가면
-`설계만 있는 상태`에서 `실제 구현 시작 가능한 상태`로 넘어갈 수 있다.
+`기본 화면만 있는 상태`에서 `실제 Sales Data OS 백엔드가 설계된 상태`로 넘어갈 수 있다.

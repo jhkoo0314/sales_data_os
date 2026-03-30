@@ -17,10 +17,14 @@
 
 ### Python worker가 계속 맡는 일
 
+- 입력 intake
+- 입력 검증
 - adapter 처리
 - KPI 계산
+- 모듈별 result asset 조립
 - result asset 생성
-- validation/orchestration
+- validation
+- radar 인텔리전스 생성
 - builder 산출물 생성
 - artifact 저장
 
@@ -39,6 +43,34 @@
 - run 상태 조회
 - report 목록 조회
 - Agent 질의응답 연결
+
+## 2.1 공식 모듈 구조
+
+백엔드 시스템 설명은 아래 `9개 모듈` 기준으로 맞춘다.
+
+- `intake`
+- `kpi`
+- `crm`
+- `sandbox`
+- `territory`
+- `prescription`
+- `validation`
+- `radar`
+- `builder`
+
+주의:
+
+- 겉으로 드러나는 운영/결과 모듈은 `5개`다
+  - `crm`
+  - `sandbox`
+  - `prescription`
+  - `territory`
+  - `radar`
+- 내부에서 움직이는 엔진 모듈은 `4개`다
+  - `intake`
+  - `kpi`
+  - `validation`
+  - `builder`
 
 ## 3. 데이터 설계 원칙
 

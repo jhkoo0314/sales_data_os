@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --app-bg: #f3f6f8;
+  --app-bg: #f8fafc;
 }
 
 * {
@@ -10,18 +10,216 @@
 
 html {
   background: var(--app-bg);
+  text-rendering: geometricPrecision;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  font-family:
-    "Segoe UI",
-    "Noto Sans KR",
-    sans-serif;
+  font-family: var(--font-inter), var(--font-noto-sans-kr), Arial, sans-serif;
+  color: #0f172a;
+  background: #0f172a;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv11", "ss03", "ss04";
+  font-synthesis-weight: none;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
 }
 
 a {
   color: inherit;
   text-decoration: none;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+code,
+.font-mono {
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  letter-spacing: -0.03em;
+}
+
+p,
+span,
+button,
+input,
+textarea,
+td,
+th {
+  letter-spacing: -0.01em;
+}
+
+.text-display {
+  letter-spacing: -0.05em;
+  font-weight: 800;
+}
+
+.text-heading {
+  letter-spacing: -0.03em;
+  font-weight: 700;
+}
+
+.text-body {
+  line-height: 1.55;
+  letter-spacing: -0.012em;
+}
+
+.text-mono-tight {
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.hero-panel {
+  padding: 0;
+}
+
+.bg-grid {
+  background-size: 40px 40px;
+  background-image:
+    linear-gradient(to right, rgba(15, 23, 42, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 23, 42, 0.03) 1px, transparent 1px);
+}
+
+.brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.brand-mark {
+  display: block;
+  height: 1.5rem;
+  width: 1.5rem;
+  border-radius: 0.25rem;
+  background: linear-gradient(135deg, #38bdf8, #0284c7);
+  box-shadow: 0 0 15px rgba(14, 165, 233, 0.5);
+  color: transparent;
+}
+
+.eyebrow,
+.section-kicker {
+  margin-bottom: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #0284c7;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.section-title {
+  margin-top: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #475569;
+}
+
+.action-card {
+  display: block;
+  border-radius: 1rem;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  padding: 1rem 1.1rem;
+}
+
+.primary-button,
+.secondary-button,
+.ghost-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  padding: 0.85rem 1.2rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease;
+}
+
+.primary-button {
+  border: 0;
+  background: #0f172a;
+  color: white;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
+}
+
+.secondary-button {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #1e293b;
+}
+
+.ghost-button {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #475569;
+}
+
+.callout {
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 1rem 1.1rem;
+  font-size: 0.92rem;
+  line-height: 1.7;
+  color: #475569;
+}
+
+.callout-ok {
+  border-color: rgba(167, 243, 208, 0.9);
+  background: rgba(236, 253, 245, 0.92);
+  color: #047857;
+}
+
+.callout-warn {
+  border-color: rgba(253, 230, 138, 0.9);
+  background: rgba(255, 251, 235, 0.95);
+  color: #b45309;
 }

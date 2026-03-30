@@ -117,7 +117,7 @@
 
 ### 목표 1. Python 계산 엔진 유지
 
-KPI 계산, validation, orchestration, builder 산출은 계속 Python이 맡는다.
+KPI 계산, validation, builder 산출은 계속 Python이 맡는다.
 
 ### 목표 2. 웹 운영 콘솔 구축
 
@@ -160,10 +160,10 @@ KPI 계산, validation, orchestration, builder 산출은 계속 Python이 맡는
 
 이것은 하지 않는다.
 
-### 6.3 OPS 개념 변경
+### 6.3 validation 용어 기준
 
-- OPS를 시스템 전체 이름으로 재정의
-- OPS를 프론트엔드의 중심 개념으로 사용
+- `OPS`라는 표현은 더 이상 중심 용어로 사용하지 않음
+- 검증과 전달 판단 레이어는 `validation`으로만 설명
 
 이것은 하지 않는다.
 
@@ -291,10 +291,10 @@ KPI 계산, validation, orchestration, builder 산출은 계속 Python이 맡는
 
 시스템 전체 이름은 항상 `Sales Data OS`다.
 
-### 10.2 OPS 역할 원칙
+### 10.2 validation 역할 원칙
 
-`OPS`는 시스템 전체가 아니라
-`Validation / Orchestration Layer`다.
+`validation`은 시스템 전체 이름이 아니라
+KPI 결과를 검증하고 다음 단계 전달 가능 여부를 판단하는 레이어다.
 
 ### 10.3 KPI 단일 소스 원칙
 

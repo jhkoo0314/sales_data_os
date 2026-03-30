@@ -19,11 +19,29 @@ Sales Data OS의 공식 시스템 흐름은 바뀌지 않는다.
 
 공식 흐름:
 
-`raw -> adapter -> core engine/module -> result asset -> validation layer(OPS) -> intelligence(RADAR) -> builder`
+`입력 -> 검증 -> 정규화 -> KPI 계산 -> validation -> result asset / payload -> builder`
 
 웹은 이 흐름의 앞뒤를 연결해서 보여주는 역할이다.
 
 즉 웹이 새 계산 단계를 만드는 것이 아니다.
+
+공식 모듈 구조는 아래 `9개`다.
+
+- `intake`
+- `kpi`
+- `crm`
+- `sandbox`
+- `territory`
+- `prescription`
+- `validation`
+- `radar`
+- `builder`
+
+주의:
+
+- 겉으로 드러나는 운영/결과 모듈은 `crm / sandbox / prescription / territory / radar` 총 5개다
+- `intake / kpi / validation / builder`는 내부 엔진 모듈이다
+- 데이터 흐름 문서는 항상 `9개 모듈` 기준으로 읽고, 화면 설명은 `겉으로 보이는 5개 모듈` 기준으로 읽는다
 
 ## 3. 웹 기준 전체 흐름
 
@@ -104,9 +122,9 @@ Sales Data OS의 공식 시스템 흐름은 바뀌지 않는다.
 핵심 저장 위치:
 
 - `data/company_source/{company_key}/`
-- `data/ops_standard/{company_key}/`
-- `data/ops_validation/{company_key}/`
-- `data/ops_validation/{company_key}/runs/{run_id}/`
+- `data/standard/{company_key}/`
+- `data/validation/{company_key}/`
+- `data/validation/{company_key}/runs/{run_id}/`
 
 즉 웹은 파일명을 기준으로 회사를 판단하면 안 되고,
 항상 `company_key`를 기준으로 요청해야 한다.
@@ -285,7 +303,7 @@ Agent는 아래 순서로 문맥을 읽는 것이 바람직하다.
 - run_id 없는 상태 추적을 만들지 않는다.
 - 프론트가 KPI를 다시 계산하지 않는다.
 - Builder 결과를 웹에서 다시 계산하지 않는다.
-- OPS를 화면 로직으로 바꾸지 않는다.
+- validation을 화면 로직으로 바꾸지 않는다.
 
 ## 16. 체크리스트
 

@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prescription Flow Intelligence — Operational Console</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0e1a;
+  --surface: #111827;
+  --surface-alt: #161e2e;
+  --border: #1e293b;
+  --accent: #3b82f6;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+  --font: "Segoe UI", system-ui, sans-serif;
+  --mono: "Segoe UI", system-ui, sans-serif;
+  --radius: 10px;
+  --shadow: 0 14px 28px rgba(0, 0, 0, 0.22);
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  letter-spacing: -0.01em;
+}
+
+.font-mono { font-family: var(--mono); }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+.glass-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.pipeline-step {
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.pipeline-step::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--border);
+}
+
+.pipeline-step.complete::after { background: var(--success); }
+.pipeline-step.active::after { background: var(--accent); }
+.pipeline-step.error::after { background: var(--danger); }
+
+.stat-value {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+}
+
+.data-row:hover { background: var(--surface-alt); }
+
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--border);
+}
+td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.chart-container { position: relative; width: 100%; height: 280px; }
+</style>
+</head>
+<body class="p-5">
+
+  <header class="flex justify-between items-end mb-6 pb-4 border-b border-slate-800 gap-4 flex-wrap">
+    <div>
+      <div class="flex items-center gap-2 mb-2 flex-wrap">
+        <span class="bg-blue-600 text-white px-2 py-0.5 text-[10px] font-bold tracking-widest uppercase rounded-[8px]">Operational</span>
+        <span id="companyBadge" class="bg-slate-800 text-slate-200 px-2 py-0.5 text-[10px] font-bold tracking-widest uppercase rounded-[8px]"></span>
+        <span class="text-slate-500 font-mono text-[10px]" id="qualityBadge"></span>
+      </div>
+      <h1 class="text-3xl font-bold tracking-tight text-white">PRESCRIPTION DATA <span class="text-blue-500">FLOW</span></h1>
+      <p class="text-slate-400 font-bold text-xs mt-1 uppercase tracking-wider">도매 -> 약국 -> 병원 -> 담당자 흐름 검증 콘솔</p>
+    </div>
+    <div class="flex flex-col items-end gap-3">
+      <div class="flex items-center gap-2">
+        <span id="statusDot" class="w-2 h-2 rounded-full"></span>
+        <span id="statusText" class="text-[10px] font-mono font-bold"></span>
+      </div>
+      <div class="flex gap-2 flex-wrap justify-end">
+        <select id="quarterSel" class="bg-slate-900 border border-slate-700 text-[11px] font-bold px-3 py-1.5 focus:border-blue-500 outline-none"></select>
+        <select id="monthSel" class="bg-slate-900 border border-slate-700 text-[11px] font-bold px-3 py-1.5 focus:border-blue-500 outline-none"></select>
+        <select id="territorySel" class="bg-slate-900 border border-slate-700 text-[11px] font-bold px-3 py-1.5 focus:border-blue-500 outline-none"></select>
+      </div>
+    </div>
+  </header>
+
+  <section id="pipelineTrail" class="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-2 mb-8"></section>
+
+  <div class="grid grid-cols-12 gap-6">
+
+    <div class="col-span-12 lg:col-span-8 space-y-6">
+
+      <div class="glass-panel p-5">
+        <div class="flex justify-between items-center mb-5 gap-4 flex-wrap">
+          <h3 class="text-sm font-bold text-white uppercase tracking-tight flex items-center gap-2">
+            <i class="fas fa-stream text-blue-500"></i> Data Flow Distribution
+          </h3>
+          <span class="text-[10px] font-mono text-slate-500">Unit: Million KRW</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mb-6" id="flowSummaryCards"></div>
+
+        <div class="chart-container">
+          <canvas id="flowChart"></canvas>
+        </div>
+      </div>
+
+      <div class="glass-panel overflow-hidden">
+        <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/30 gap-3 flex-wrap">
+          <div>
+            <h3 class="text-xs font-bold text-white uppercase tracking-tight">Rep Individual KPI Post-Share</h3>
+            <p id="tableMeta" class="text-[10px] text-slate-500 mt-1"></p>
+          </div>
+          <button class="text-[10px] bg-slate-800 px-2 py-1 flex items-center gap-1 cursor-default">
+            <i class="fas fa-table"></i> LIVE PREVIEW
+          </button>
+        </div>
+        <div class="overflow-x-auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Rep Name</th>
+                <th>Territory</th>
+                <th>Brand</th>
+                <th>주장금액</th>
+                <th>추적금액</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="repTableBody"></tbody>
+          </table>
+        </div>
+        <div class="flex justify-between items-center gap-3 px-4 py-3 border-t border-slate-800 bg-slate-900/20 flex-wrap">
+          <p id="repPageInfo" class="text-[10px] text-slate-500"></p>
+          <div class="flex gap-2">
+            <button id="repPrevBtn" type="button" class="text-[10px] bg-slate-800 hover:bg-slate-700 px-3 py-1.5 border border-slate-700 disabled:opacity-40 disabled:cursor-default">이전</button>
+            <button id="repNextBtn" type="button" class="text-[10px] bg-slate-800 hover:bg-slate-700 px-3 py-1.5 border border-slate-700 disabled:opacity-40 disabled:cursor-default">다음</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-span-12 lg:col-span-4 space-y-6">
+
+      <div class="glass-panel p-5">
+        <h3 class="text-sm font-bold text-white uppercase tracking-tight mb-4 flex items-center gap-2">
+          <i class="fas fa-shield-virus text-amber-500"></i> Integrity Diagnostic
+        </h3>
+        <div class="space-y-4">
+          <div class="flex justify-between items-end">
+            <span class="text-[10px] font-bold text-slate-400">Mastering Ratio</span>
+            <span id="masteringRatioValue" class="text-xs font-mono font-bold text-emerald-500"></span>
+          </div>
+          <div class="w-full bg-slate-800 h-1.5 overflow-hidden">
+            <div id="masteringRatioBar" class="bg-emerald-500 h-full"></div>
+          </div>
+
+          <div class="flex justify-between items-end mt-4">
+            <span class="text-[10px] font-bold text-slate-400">Rule Coverage</span>
+            <span id="ruleCoverageValue" class="text-xs font-mono font-bold text-amber-500"></span>
+          </div>
+          <div class="w-full bg-slate-800 h-1.5 overflow-hidden">
+            <div id="ruleCoverageBar" class="bg-amber-500 h-full"></div>
+          </div>
+        </div>
+
+        <div class="mt-8 grid grid-cols-2 gap-4">
+          <div class="p-3 bg-slate-900 border border-slate-800 rounded-[10px] text-center">
+            <p class="text-[9px] font-bold text-slate-500 uppercase">High Severity</p>
+            <p id="highSeverityValue" class="text-xl font-bold text-rose-500 pt-1"></p>
+          </div>
+          <div class="p-3 bg-slate-900 border border-slate-800 rounded-[10px] text-center">
+            <p class="text-[9px] font-bold text-slate-500 uppercase">Warnings</p>
+            <p id="warningValue" class="text-xl font-bold text-amber-500 pt-1"></p>
+          </div>
+        </div>
+
+        <div class="mt-6 text-[10px] text-slate-500 leading-relaxed" id="logicNote"></div>
+      </div>
+
+      <div class="glass-panel h-[400px] flex flex-col">
+        <div class="p-4 border-b border-slate-800 bg-slate-900/30">
+          <h3 class="text-xs font-bold text-white uppercase tracking-tight">Trace Case Log</h3>
+          <p class="text-[9px] text-slate-500 mt-1">Claim variance / unmapped / rule miss summary</p>
+        </div>
+        <div id="traceLog" class="flex-1 overflow-y-auto p-4 font-mono text-[10px] space-y-2"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <section class="glass-panel mt-6 p-5">
+    <div class="flex justify-between items-center gap-4 flex-wrap">
+      <div>
+        <h3 class="text-sm font-bold text-white uppercase tracking-tight flex items-center gap-2">
+          <i class="fas fa-box-open text-blue-500"></i> On-demand Detail Loader
+        </h3>
+        <p class="text-[10px] text-slate-500 mt-1">무거운 비교표와 추적 상세는 버튼을 눌렀을 때만 읽습니다.</p>
+      </div>
+      <span id="detailStatus" class="text-[10px] font-mono text-slate-500">요약만 먼저 로드됨</span>
+    </div>
+    <div class="flex gap-2 flex-wrap mt-4">
+      <select id="detailDatasetSel" class="bg-slate-900 border border-slate-700 text-[11px] font-bold px-3 py-1.5 focus:border-blue-500 outline-none"></select>
+      <button id="detailLoadBtn" type="button" class="text-[11px] font-bold bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 border border-blue-500 disabled:opacity-40 disabled:cursor-default">
+        선택 상세 불러오기
+      </button>
+    </div>
+    <p id="detailSummary" class="text-[10px] text-slate-500 mt-3"></p>
+    <div class="overflow-x-auto mt-4">
+      <table>
+        <thead id="detailTableHead"></thead>
+        <tbody id="detailTableBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="mt-12 pt-6 border-t border-slate-900 flex justify-between items-center text-[10px] font-mono text-slate-600 gap-3 flex-wrap">
+    <p>© 2026 SFE STRATEGIC INTEL ENGINE. RX-CONSOLE_v1</p>
+    <div class="flex gap-4 flex-wrap">
+      <span class="flex items-center gap-1"><i class="fas fa-database"></i> Source: OPS Validation Result (Prescription)</span>
+      <span class="flex items-center gap-1"><i class="fas fa-microchip"></i> Render: Builder HTML</span>
+    </div>
+  </footer>
+
+  <script>
+    window.__PRESCRIPTION_DATA__ = {};
+    window.__PRESCRIPTION_DETAIL_DATA__ = window.__PRESCRIPTION_DETAIL_DATA__ || {};
+
+    const data = window.__PRESCRIPTION_DATA__ || {};
+    const detailData = window.__PRESCRIPTION_DETAIL_DATA__ || {};
+    const quarterSel = document.getElementById('quarterSel');
+    const monthSel = document.getElementById('monthSel');
+    const territorySel = document.getElementById('territorySel');
+    const repTableBody = document.getElementById('repTableBody');
+    const traceLog = document.getElementById('traceLog');
+    const pipelineTrail = document.getElementById('pipelineTrail');
+    const flowSummaryCards = document.getElementById('flowSummaryCards');
+    const companyBadge = document.getElementById('companyBadge');
+    const qualityBadge = document.getElementById('qualityBadge');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const tableMeta = document.getElementById('tableMeta');
+    const repPageInfo = document.getElementById('repPageInfo');
+    const repPrevBtn = document.getElementById('repPrevBtn');
+    const repNextBtn = document.getElementById('repNextBtn');
+    const masteringRatioValue = document.getElementById('masteringRatioValue');
+    const masteringRatioBar = document.getElementById('masteringRatioBar');
+    const ruleCoverageValue = document.getElementById('ruleCoverageValue');
+    const ruleCoverageBar = document.getElementById('ruleCoverageBar');
+    const highSeverityValue = document.getElementById('highSeverityValue');
+    const warningValue = document.getElementById('warningValue');
+    const logicNote = document.getElementById('logicNote');
+    const detailDatasetSel = document.getElementById('detailDatasetSel');
+    const detailLoadBtn = document.getElementById('detailLoadBtn');
+    const detailStatus = document.getElementById('detailStatus');
+    const detailSummary = document.getElementById('detailSummary');
+    const detailTableHead = document.getElementById('detailTableHead');
+    const detailTableBody = document.getElementById('detailTableBody');
+
+    let flowChart;
+    let repPage = 1;
+    const repPageSize = 10;
+    const detailLoadPromises = {};
+    const detailBucketLabels = {
+      claims: 'Claim Validation',
+      hospital_traces: 'Hospital Trace',
+      rep_kpis: 'Rep KPI',
+      gaps: 'Gap Records',
+    };
+    const detailBucketColumns = {
+      claims: ['year_quarter', 'rep_name', 'hospital_name', 'product_name', 'claimed_amount', 'tracked_amount', 'verdict'],
+      hospital_traces: ['year_quarter', 'rep_name', 'hospital_name', 'product_name', 'total_amount', 'flow_count'],
+      rep_kpis: ['year_quarter', 'rep_name', 'territory', 'brand', 'pre_share_amount', 'post_share_amount', 'status'],
+      gaps: ['year_quarter', 'pharmacy_name', 'product_name', 'quantity', 'gap_reason'],
+    };
+    const detailColumnLabels = {
+      year_quarter: 'Quarter',
+      rep_name: 'Rep',
+      hospital_name: 'Hospital',
+      product_name: 'Brand',
+      claimed_amount: '주장금액',
+      tracked_amount: '추적금액',
+      verdict: '판정',
+      total_amount: '금액',
+      flow_count: 'Flow',
+      territory: 'Territory',
+      brand: 'Brand',
+      pre_share_amount: 'Pre-Share',
+      post_share_amount: 'Post-Share',
+      status: 'Status',
+      pharmacy_name: 'Pharmacy',
+      quantity: '수량',
+      gap_reason: 'Gap Reason',
+    };
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function fmtMoney(value) {
+      return Number(value || 0).toLocaleString('ko-KR');
+    }
+
+    function fmtMillion(value) {
+      return Math.round(Number(value || 0) / 1000000).toLocaleString('ko-KR');
+    }
+
+    function fmtPercent(value) {
+      return `${(Number(value || 0) * 100).toFixed(1)}%`;
+    }
+
+    function fmtDetailValue(column, value) {
+      const moneyColumns = ['claimed_amount', 'tracked_amount', 'total_amount', 'pre_share_amount', 'post_share_amount'];
+      if (moneyColumns.includes(column)) return fmtMoney(value);
+      if (column === 'quantity') return Number(value || 0).toLocaleString('ko-KR');
+      return escapeHtml(value);
+    }
+
+    function getStatusStyle(status) {
+      if (status === 'PASS') return 'bg-emerald-900/40 text-emerald-400';
+      if (status === 'WARNING') return 'bg-amber-900/40 text-amber-400';
+      if (status === 'SUSPECT') return 'bg-rose-900/40 text-rose-400';
+      return 'bg-slate-800 text-slate-400';
+    }
+
+    function getQualityTone(status) {
+      if (status === 'pass') return ['bg-emerald-500', 'text-emerald-500', 'SYSTEM_VALIDATED'];
+      if (status === 'warn') return ['bg-amber-500', 'text-amber-500', 'SYSTEM_REVIEW_REQUIRED'];
+      return ['bg-rose-500', 'text-rose-500', 'SYSTEM_CHECK_REQUIRED'];
+    }
+
+    function loadScriptAsset(src, errorMessage) {
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.async = true;
+        script.onload = () => {
+          script.remove();
+          resolve();
+        };
+        script.onerror = () => {
+          script.remove();
+          reject(new Error(errorMessage));
+        };
+        document.head.appendChild(script);
+      });
+    }
+
+    function currentFilters() {
+      const month = monthSel.value || '';
+      const quarter = month ? '' : (quarterSel.value || '');
+      return {
+        quarter,
+        month,
+        territory: territorySel.value || '',
+      };
+    }
+
+    function getQuarterMonths(quarter) {
+      if (!quarter) return [];
+      const year = quarter.slice(0, 4);
+      const quarterCode = quarter.slice(-2);
+      const quarterMonths = {
+        Q1: [`${year}-01`, `${year}-02`, `${year}-03`],
+        Q2: [`${year}-04`, `${year}-05`, `${year}-06`],
+        Q3: [`${year}-07`, `${year}-08`, `${year}-09`],
+        Q4: [`${year}-10`, `${year}-11`, `${year}-12`],
+      };
+      return quarterMonths[quarterCode] || [];
+    }
+
+    function getFilteredRows() {
+      const filters = currentFilters();
+      const rows = data.console_rows || [];
+      return rows.filter((row) => {
+        if (filters.month) {
+          if (row.period_type !== 'month' || row.year_month !== filters.month) return false;
+        } else if (filters.quarter) {
+          if (row.period_type !== 'quarter' || row.year_quarter !== filters.quarter) return false;
+        }
+        if (filters.territory && row.territory_group !== filters.territory) return false;
+        return true;
+      });
+    }
+
+    function getBaseSeries() {
+      const territory = territorySel.value || '';
+      if (territory && data.flow_series_by_territory && data.flow_series_by_territory[territory]) {
+        return data.flow_series_by_territory[territory];
+      }
+      return data.flow_series || [];
+    }
+
+    function getFilteredSeries() {
+      const { quarter, month } = currentFilters();
+      const series = getBaseSeries();
+      if (month) return series.filter((item) => item.label === month);
+      if (!quarter) return series;
+      const months = getQuarterMonths(quarter);
+      return series.filter((item) => months.includes(item.label));
+    }
+
+    function getFilteredLogs() {
+      const { quarter, month } = currentFilters();
+      const logs = data.trace_logs || [];
+      if (month) {
+        return logs.filter((log) => String(log.time || '').includes(month));
+      }
+      if (quarter) {
+        const quarterMonths = getQuarterMonths(quarter);
+        return logs.filter((log) => {
+          const time = String(log.time || '');
+          return time === quarter || quarterMonths.some((monthKey) => time.includes(monthKey));
+        });
+      }
+      return logs;
+    }
+
+    function summarizeSeries(series) {
+      return series.reduce((acc, item) => {
+        acc.total_wholesale_amount += Number(item.wholesale_amount || 0);
+        acc.mastered_amount += Number(item.mastered_amount || 0);
+        acc.tracked_amount += Number(item.tracked_amount || 0);
+        acc.pre_kpi_final_amount += Number(item.final_amount || 0);
+        return acc;
+      }, {
+        total_wholesale_amount: 0,
+        mastered_amount: 0,
+        tracked_amount: 0,
+        pre_kpi_final_amount: 0,
+      });
+    }
+
+    function renderHeader() {
+      const overview = data.overview || {};
+      const qualityStatus = String(overview.quality_status || 'unknown').toLowerCase();
+      const tone = getQualityTone(qualityStatus);
+      companyBadge.textContent = escapeHtml(data.company || 'COMPANY');
+      qualityBadge.textContent = `QS ${Number(overview.quality_score || 0).toFixed(1)}`;
+      statusDot.className = `w-2 h-2 rounded-full ${tone[0]}`;
+      statusText.className = `text-[10px] font-mono font-bold ${tone[1]}`;
+      statusText.textContent = tone[2];
+    }
+
+    function renderPipeline() {
+      const steps = data.pipeline_steps || [];
+      pipelineTrail.innerHTML = steps.map((step) => `
+        <div class="pipeline-step ${escapeHtml(step.status || '')} bg-slate-900/50 p-4">
+          <span class="text-[9px] font-mono text-slate-500">${escapeHtml(step.step || '')}</span>
+          <h4 class="text-xs font-bold uppercase mt-1 ${step.status === 'active' ? 'text-blue-400' : step.status === 'error' ? 'text-rose-400' : 'text-slate-300'}">${escapeHtml(step.title || '')}</h4>
+          <p class="text-[10px] mt-2 ${step.status === 'complete' ? 'text-slate-500' : step.status === 'active' ? 'text-blue-500 font-bold' : step.status === 'error' ? 'text-rose-500 font-bold' : 'text-slate-700'}">${escapeHtml(step.metric || '')}</p>
+        </div>
+      `).join('');
+    }
+
+    function renderSummaryCards() {
+      const summary = summarizeSeries(getFilteredSeries());
+      const cards = [
+        ['Total Wholesale', summary.total_wholesale_amount, 'border-blue-600'],
+        ['Mastered Amount', summary.mastered_amount, 'border-purple-600'],
+        ['Tracked Out', summary.tracked_amount, 'border-emerald-600'],
+        ['Pre-KPI Final', summary.pre_kpi_final_amount, 'border-amber-600'],
+      ];
+      flowSummaryCards.innerHTML = cards.map(([label, value, tone]) => `
+        <div class="bg-slate-900/80 p-4 border-l-2 ${tone} rounded-[10px] border border-slate-800/80">
+          <span class="text-[9px] text-slate-500 font-bold uppercase block mb-1">${label}</span>
+          <span class="stat-value text-xl font-bold">${fmtMillion(value)}</span>
+        </div>
+      `).join('');
+    }
+
+    function renderChart() {
+      const series = getFilteredSeries();
+      const labels = series.map((item) => item.label);
+      const ctx = document.getElementById('flowChart').getContext('2d');
+      if (flowChart) flowChart.destroy();
+      flowChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Wholesale Amount',
+              data: series.map((item) => Math.round(Number(item.wholesale_amount || 0) / 1000000)),
+              borderColor: '#3b82f6',
+              backgroundColor: 'rgba(59, 130, 246, 0.12)',
+              fill: true,
+              tension: 0.35
+            },
+            {
+              label: 'Post-Share Target',
+              data: series.map((item) => Math.round(Number(item.tracked_amount || 0) / 1000000)),
+              borderColor: '#10b981',
+              borderDash: [5, 5],
+              tension: 0.35
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            y: {
+              grid: { color: 'rgba(255,255,255,0.05)' },
+              ticks: { color: '#94a3b8', font: { size: 10 } }
+            },
+            x: {
+              grid: { display: false },
+              ticks: { color: '#94a3b8', font: { size: 10 } }
+            }
+          }
+        }
+      });
+    }
+
+    function renderTable() {
+      const rows = getFilteredRows();
+      const totalPages = Math.max(1, Math.ceil(rows.length / repPageSize));
+      if (repPage > totalPages) repPage = totalPages;
+      tableMeta.textContent = `${rows.length.toLocaleString('ko-KR')} rows matched`;
+      if (!rows.length) {
+        repTableBody.innerHTML = `
+          <tr class="data-row">
+            <td colspan="6" class="text-slate-500">조건에 맞는 KPI 행이 없습니다.</td>
+          </tr>
+        `;
+        repPageInfo.textContent = '0 / 0';
+        repPrevBtn.disabled = true;
+        repNextBtn.disabled = true;
+        return;
+      }
+      const pageRows = rows.slice((repPage - 1) * repPageSize, repPage * repPageSize);
+      repTableBody.innerHTML = pageRows.map((row) => `
+        <tr class="data-row">
+          <td class="font-bold underline text-blue-400">${escapeHtml(row.rep_name)}</td>
+          <td class="font-mono">${escapeHtml(row.territory)}</td>
+          <td>${escapeHtml(row.brand)}</td>
+          <td class="font-mono text-slate-400">${fmtMoney(row.claimed_amount)}</td>
+          <td class="font-mono font-bold text-white">${fmtMoney(row.tracked_amount)}</td>
+          <td>
+            <span class="status-tag ${getStatusStyle(row.status)}">${escapeHtml(row.status)}</span>
+          </td>
+        </tr>
+      `).join('');
+      repPageInfo.textContent = `${repPage} / ${totalPages} 페이지 · ${rows.length.toLocaleString('ko-KR')}건`;
+      repPrevBtn.disabled = repPage <= 1;
+      repNextBtn.disabled = repPage >= totalPages;
+    }
+
+    function renderDiagnostics() {
+      const diagnostics = data.diagnostics || {};
+      masteringRatioValue.textContent = fmtPercent(diagnostics.mastering_ratio);
+      masteringRatioBar.style.width = `${Math.max(0, Math.min(100, Number(diagnostics.mastering_ratio || 0) * 100))}%`;
+      ruleCoverageValue.textContent = fmtPercent(diagnostics.rule_coverage);
+      ruleCoverageBar.style.width = `${Math.max(0, Math.min(100, Number(diagnostics.rule_coverage || 0) * 100))}%`;
+      highSeverityValue.textContent = String(diagnostics.high_severity || 0).padStart(2, '0');
+      warningValue.textContent = String(diagnostics.warnings || 0).padStart(2, '0');
+      const logicReference = data.logic_reference || {};
+      logicNote.innerHTML = `
+        <div>${escapeHtml(logicReference.settlement_basis || '')}</div>
+        <div class="mt-2">${escapeHtml(logicReference.rule_version_note || '')}</div>
+      `;
+    }
+
+    function renderLogs() {
+      const logs = getFilteredLogs();
+      if (!logs.length) {
+        traceLog.innerHTML = `<div class="text-slate-500">표시할 로그가 없습니다.</div>`;
+        return;
+      }
+      traceLog.innerHTML = logs.slice(0, 32).map((log) => `
+        <div class="flex gap-2">
+          <span class="text-slate-600 shrink-0">${escapeHtml(log.time || '')}</span>
+          <span class="uppercase font-bold ${log.sev === 'high' ? 'text-rose-500' : log.sev === 'med' ? 'text-amber-500' : 'text-slate-400'}">[${escapeHtml(log.case || '')}]</span>
+          <span class="text-slate-300">${escapeHtml(log.detail || '')}</span>
+        </div>
+      `).join('');
+    }
+
+    function getDetailBucketLabel(bucket) {
+      return detailBucketLabels[bucket] || bucket || 'Detail';
+    }
+
+    function getDetailManifest(bucket) {
+      return (data.detail_asset_manifest || {})[bucket] || {};
+    }
+
+    function resolveDetailKey(bucket) {
+      const manifest = getDetailManifest(bucket);
+      const selectedMonth = monthSel.value || '';
+      const selectedQuarter = quarterSel.value || '';
+      if (selectedMonth && manifest[selectedMonth]) return selectedMonth;
+      if (selectedQuarter && manifest[selectedQuarter]) return selectedQuarter;
+      if (manifest.ALL) return 'ALL';
+      const defaultMonth = (data.filters || {}).default_month || '';
+      if (defaultMonth && manifest[defaultMonth]) return defaultMonth;
+      const defaultQuarter = (data.filters || {}).default_quarter || '';
+      if (defaultQuarter && manifest[defaultQuarter]) return defaultQuarter;
+      return Object.keys(manifest)[0] || '';
+    }
+
+    function updateDetailSummary() {
+      const bucket = detailDatasetSel.value || '';
+      if (!bucket) {
+        detailSummary.textContent = '추가 상세 자산이 없습니다.';
+        return;
+      }
+      const count = Number((data.detail_asset_counts || {})[bucket] || 0);
+      const key = resolveDetailKey(bucket);
+      const scopeLabel = key && key !== 'ALL' ? `${key} 기준` : '전체 기준';
+      detailSummary.textContent = `${getDetailBucketLabel(bucket)} ${count.toLocaleString('ko-KR')}건이 준비돼 있습니다. ${scopeLabel} 상세는 버튼을 눌렀을 때만 읽습니다.`;
+    }
+
+    function ensureDetailRows(bucket, cacheKey) {
+      if (!bucket || !cacheKey) return Promise.resolve([]);
+      detailData[bucket] = detailData[bucket] || {};
+      if (detailData[bucket][cacheKey]) {
+        return Promise.resolve(detailData[bucket][cacheKey]);
+      }
+
+      const manifest = getDetailManifest(bucket);
+      const fileName = manifest[cacheKey];
+      if (!fileName) {
+        return Promise.resolve([]);
+      }
+
+      const promiseKey = `${bucket}|${cacheKey}`;
+      if (detailLoadPromises[promiseKey]) {
+        return detailLoadPromises[promiseKey];
+      }
+
+      const assetBase = data.asset_base || '';
+      const assetPath = assetBase ? `${assetBase}/${fileName}` : fileName;
+      detailStatus.textContent = `${getDetailBucketLabel(bucket)} 불러오는 중`;
+
+      detailLoadPromises[promiseKey] = loadScriptAsset(assetPath, `${getDetailBucketLabel(bucket)} 자산을 불러오지 못했습니다.`)
+        .then(() => ((detailData[bucket] || {})[cacheKey] || []))
+        .finally(() => {
+          delete detailLoadPromises[promiseKey];
+        });
+
+      return detailLoadPromises[promiseKey];
+    }
+
+    function renderDetailTable(bucket, rows, cacheKey) {
+      const columns = detailBucketColumns[bucket] || [];
+      const pageRows = rows.slice(0, 20);
+      detailTableHead.innerHTML = `
+        <tr>
+          ${columns.map((column) => `<th>${escapeHtml(detailColumnLabels[column] || column)}</th>`).join('')}
+        </tr>
+      `;
+
+      if (!rows.length) {
+        detailTableBody.innerHTML = `
+          <tr class="data-row">
+            <td colspan="${Math.max(columns.length, 1)}" class="text-slate-500">불러온 상세 행이 없습니다.</td>
+          </tr>
+        `;
+        detailStatus.textContent = `${getDetailBucketLabel(bucket)} 데이터 없음`;
+        return;
+      }
+
+      detailTableBody.innerHTML = pageRows.map((row) => `
+        <tr class="data-row">
+          ${columns.map((column) => `<td>${fmtDetailValue(column, row[column])}</td>`).join('')}
+        </tr>
+      `).join('');
+
+      const scopeLabel = cacheKey && cacheKey !== 'ALL' ? cacheKey : '전체';
+      detailStatus.textContent = `${getDetailBucketLabel(bucket)} ${pageRows.length}건 표시 중`;
+      detailSummary.textContent = `${getDetailBucketLabel(bucket)} ${rows.length.toLocaleString('ko-KR')}건 중 ${pageRows.length.toLocaleString('ko-KR')}건을 표시합니다. 기준 범위: ${scopeLabel}`;
+    }
+
+    function initDetailControls() {
+      const detailCounts = data.detail_asset_counts || {};
+      const buckets = ['claims', 'hospital_traces', 'rep_kpis', 'gaps']
+        .filter((bucket) => Number(detailCounts[bucket] || 0) > 0);
+
+      if (!buckets.length) {
+        detailDatasetSel.disabled = true;
+        detailLoadBtn.disabled = true;
+        detailStatus.textContent = '추가 상세 없음';
+        detailSummary.textContent = '이 화면은 요약 중심 미리보기만 제공합니다.';
+        return;
+      }
+
+      detailDatasetSel.innerHTML = buckets.map((bucket) => `
+        <option value="${escapeHtml(bucket)}">${escapeHtml(getDetailBucketLabel(bucket))} (${Number(detailCounts[bucket] || 0).toLocaleString('ko-KR')}건)</option>
+      `).join('');
+      detailStatus.textContent = '요약만 먼저 로드됨';
+      updateDetailSummary();
+
+      detailDatasetSel.addEventListener('change', updateDetailSummary);
+      detailLoadBtn.addEventListener('click', async () => {
+        const bucket = detailDatasetSel.value || '';
+        const cacheKey = resolveDetailKey(bucket);
+        if (!bucket || !cacheKey) {
+          detailStatus.textContent = '불러올 상세 자산이 없습니다.';
+          return;
+        }
+        try {
+          const rows = await ensureDetailRows(bucket, cacheKey);
+          renderDetailTable(bucket, rows, cacheKey);
+        } catch (error) {
+          detailStatus.textContent = '상세 로드 실패';
+          detailSummary.textContent = error.message || '상세 자산을 읽지 못했습니다.';
+        }
+      });
+    }
+
+    function initFilters() {
+      const filterConfig = data.filters || {};
+      const quarters = filterConfig.quarters || [];
+      const months = filterConfig.months || [];
+      const territories = filterConfig.territories || [];
+      quarterSel.innerHTML = ['<option value="">전체 기간</option>']
+        .concat(quarters.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`))
+        .join('');
+      monthSel.innerHTML = ['<option value="">전체 월</option>']
+        .concat(months.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`))
+        .join('');
+      territorySel.innerHTML = ['<option value="">전체 영업권역</option>']
+        .concat(territories.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`))
+        .join('');
+      if (filterConfig.default_month) {
+        monthSel.value = filterConfig.default_month;
+        quarterSel.value = '';
+      } else if (filterConfig.default_quarter) {
+        quarterSel.value = filterConfig.default_quarter;
+      }
+      if (filterConfig.default_territory) territorySel.value = filterConfig.default_territory;
+    }
+
+    function update() {
+      if (monthSel.value) {
+        quarterSel.value = '';
+      } else if (quarterSel.value) {
+        monthSel.value = '';
+      }
+      renderSummaryCards();
+      renderChart();
+      renderTable();
+      renderDiagnostics();
+      renderLogs();
+    }
+
+    renderHeader();
+    renderPipeline();
+    initFilters();
+    initDetailControls();
+    repPrevBtn.addEventListener('click', () => {
+      if (repPage <= 1) return;
+      repPage -= 1;
+      renderTable();
+    });
+    repNextBtn.addEventListener('click', () => {
+      repPage += 1;
+      renderTable();
+    });
+    quarterSel.addEventListener('change', () => {
+      repPage = 1;
+      if (quarterSel.value) {
+        monthSel.value = '';
+      }
+      updateDetailSummary();
+      update();
+    });
+    monthSel.addEventListener('change', () => {
+      repPage = 1;
+      if (monthSel.value) {
+        quarterSel.value = '';
+      }
+      updateDetailSummary();
+      update();
+    });
+    territorySel.addEventListener('change', () => {
+      repPage = 1;
+      update();
+    });
+    update();
+  </script>
+</body>
+</html>

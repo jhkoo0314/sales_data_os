@@ -24,7 +24,7 @@
 
 - KPI 계산은 프론트에서 하지 않는다
 - Builder는 render-only로 유지한다
-- OPS는 Validation / Orchestration Layer로만 다룬다
+- validation은 검증과 전달 판단 레이어로만 다룬다
 - 웹은 입력, 실행, 상태 추적, 설명, 결과 열람을 맡는다
 
 ### 2. 설명형 운영 UX를 유지할 것
@@ -67,8 +67,8 @@
 1. `Workspace`
 2. `Upload`
 3. `Pipeline`
-4. `Reports`
-5. `Artifacts`
+4. `Artifacts`
+5. `Reports`
 6. `Run Detail`
 7. `Agent`
 
@@ -76,6 +76,61 @@
 
 - `Run Detail`은 상단 주 메뉴보다 경로 진입 상세 페이지로 본다
 - `Agent`는 가장 마지막에 구현하는 전략 기능이다
+
+### 5-1. 현재 구현 우선순위
+
+기본 화면 뼈대는 이미 한 번 구현된 상태다.
+따라서 지금부터 우선순위는
+`새 화면 추가`
+보다
+`백엔드 엔진 설계`
+가 먼저다.
+
+현재 고정해야 하는 공식 백엔드 흐름:
+
+`입력 -> 검증 -> 정규화 -> KPI 계산 -> validation -> result asset / payload -> builder`
+
+중요:
+
+- 앞단 `검증`은 입력 파일 점검
+- 뒤단 `validation`은 KPI 이후 전달 판단
+- Builder는 계산 금지, payload 소비 전용
+
+공식 모듈 구조는 아래 `9개`다.
+
+- `intake`
+- `kpi`
+- `crm`
+- `sandbox`
+- `territory`
+- `prescription`
+- `validation`
+- `radar`
+- `builder`
+
+주의:
+
+- 겉으로 드러나는 운영/결과 모듈은 `5개`다
+  - `crm`
+  - `sandbox`
+  - `prescription`
+  - `territory`
+  - `radar`
+- 내부에서 움직이는 엔진 모듈은 `4개`다
+  - `intake`
+  - `kpi`
+  - `validation`
+  - `builder`
+- 시스템 설명은 `9개 모듈`, 화면 설명은 `겉으로 보이는 5개 모듈` 기준으로 맞춘다
+
+### 6. 대형 패치 분할 규칙
+
+파일 수정이나 생성 패치가 커질 때는
+한 번에 길게 넣지 않는다.
+
+- `200줄 이상`이 될 가능성이 있으면 반드시 여러 번으로 나눠서 패치한다
+- 공통 컴포넌트, 페이지, 스타일, 데이터 파일을 분리해서 순서대로 반영한다
+- 큰 패치를 한 번에 넣다가 실패하는 방식은 피한다
 
 ## 사용자 커뮤니케이션 원칙
 
@@ -93,6 +148,8 @@
 - `docs/task.md`
 - `docs/08_design_system.md`
 - `docs/11_antigravity_html_design_brief.md`
+- `docs/12_report_template_dependencies.md`
+- `docs/13_backend_logic_request_prompt.md`
 
 맥락 유지용 스킬:
 

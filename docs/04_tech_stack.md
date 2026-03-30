@@ -250,9 +250,9 @@ API 응답 타입과 화면 전용 타입을 구분한다.
 기존 저장 구조는 그대로 존중한다.
 
 - `data/company_source/{company_key}/`
-- `data/ops_standard/{company_key}/`
-- `data/ops_validation/{company_key}/`
-- `data/ops_validation/{company_key}/runs/{run_id}/`
+- `data/standard/{company_key}/`
+- `data/validation/{company_key}/`
+- `data/validation/{company_key}/runs/{run_id}/`
 
 ## 9. 배포 초안
 

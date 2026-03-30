@@ -1,0 +1,16 @@
+pandas
+pyarrow
+numpy
+openpyxl
+python-dateutil
+chardet
+jinja2
+supabase
+pydantic
+python-dotenv
+httpx
+tenacity
+loguru
+orjson
+pandera
+playwright
