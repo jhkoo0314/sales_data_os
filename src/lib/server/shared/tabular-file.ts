@@ -14,6 +14,68 @@ function detectDelimiter(firstLine: string): string {
   return firstLine.includes("\t") ? "\t" : ",";
 }
 
+function parseDelimitedRows(raw: string, delimiter: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let inQuotes = false;
+
+  const pushCell = () => {
+    row.push(cell);
+    cell = "";
+  };
+
+  const pushRow = () => {
+    pushCell();
+    const hasAnyValue = row.some((value) => value.length > 0);
+    if (hasAnyValue) {
+      rows.push(row);
+    }
+    row = [];
+  };
+
+  for (let index = 0; index < raw.length; index += 1) {
+    const ch = raw[index];
+    const next = raw[index + 1];
+
+    if (ch === "\"") {
+      if (inQuotes && next === "\"") {
+        cell += "\"";
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (!inQuotes && ch === delimiter) {
+      pushCell();
+      continue;
+    }
+
+    if (!inQuotes && ch === "\n") {
+      pushRow();
+      continue;
+    }
+
+    if (!inQuotes && ch === "\r") {
+      if (next === "\n") {
+        index += 1;
+      }
+      pushRow();
+      continue;
+    }
+
+    cell += ch;
+  }
+
+  if (cell.length > 0 || row.length > 0) {
+    pushRow();
+  }
+
+  return rows;
+}
+
 function normalizeCellValue(value: unknown): string {
   if (value === null || value === undefined) {
     return "";
@@ -62,9 +124,11 @@ export async function readTabularHeaders(filePath: string, preferredSheetNames?:
     if (!firstLine) {
       return [];
     }
+    const delimiter = detectDelimiter(firstLine);
+    const parsedRows = parseDelimitedRows(raw, delimiter);
+    const headerRow = parsedRows[0] ?? [];
 
-    return firstLine
-      .split(detectDelimiter(firstLine))
+    return headerRow
       .map((header) => header.trim())
       .filter(Boolean);
   }
@@ -91,15 +155,19 @@ export async function parseTabularFile(filePath: string, preferredSheetNames?: s
 
   if (ext === ".csv") {
     const raw = await fs.readFile(filePath, "utf8");
-    const lines = raw.split(/\r?\n/).filter((line) => line.trim().length > 0);
-    if (lines.length === 0) {
+    const firstLine = raw.split(/\r?\n/, 1)[0] ?? "";
+    if (!firstLine) {
       return { headers: [], rows: [], selectedSheet: null };
     }
 
-    const delimiter = detectDelimiter(lines[0]);
-    const headers = lines[0].split(delimiter).map((header) => header.trim());
-    const rows = lines.slice(1).map((line) => {
-      const values = line.split(delimiter);
+    const delimiter = detectDelimiter(firstLine);
+    const parsedRows = parseDelimitedRows(raw, delimiter);
+    if (parsedRows.length === 0) {
+      return { headers: [], rows: [], selectedSheet: null };
+    }
+
+    const headers = (parsedRows[0] ?? []).map((header) => header.trim());
+    const rows = parsedRows.slice(1).map((values) => {
       return headers.reduce<TabularRow>((acc, header, index) => {
         acc[header] = normalizeCellValue(values[index]);
         return acc;

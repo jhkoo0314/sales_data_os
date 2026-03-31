@@ -1438,8 +1438,8 @@ Phase 6 저장 경로 메모:
   - `detail_asset_counts.rep_kpis=6360`
   - `detail_asset_counts.claims=300`
   - `diagnostics.rule_applied_count=118`
-- [ ] `Data Flow Distribution` 값 미세 차이 조정
-- [ ] `Ingest Merge` `83 row` 차이 조정
+- [x] `Data Flow Distribution` 값 미세 차이 조정
+- [x] `Ingest Merge` `83 row` 차이 조정 (`42000` 기준 복원)
 - [ ] `RADAR` 템플릿 원본 대조 점검/보정
 - [ ] `total_valid` 템플릿 원본 대조 점검/보정
 

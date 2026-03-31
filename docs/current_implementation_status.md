@@ -577,9 +577,10 @@
   - `detail_asset_counts.claims = 300`
   - `diagnostics.rule_applied_count = 118`
   - `overview.flow_completion_rate = 1`
-- 아직 남은 보정:
-  - `Data Flow Distribution` 값 미세 차이 조정
-  - `Ingest Merge` 단계 `83 row` 차이 조정
+- 추가 완료:
+  - CSV 파서를 quote-safe 방식으로 교체해서 주소 필드 쉼표로 인한 열 밀림을 제거했다
+  - `Data Flow Distribution` 값 차이를 해소했다
+  - `Ingest Merge` 단계 `83 row` 차이를 해소했다 (`42000` 기준 복원)
 - 다음 작업 예정:
   - `RADAR` 템플릿 원본 대조 점검/보정
   - `total_valid` 템플릿 원본 대조 점검/보정
