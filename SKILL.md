@@ -146,9 +146,16 @@
 
 - `Phase 1`: 기반 고정 완료
 - `Phase 2`: 앱 프레임과 디자인 베이스 완료
-- 다음 우선순위: `Phase 3 ~ Phase 10` 백엔드 구현
+- `Phase 3`: 입력 수용 구현 완료
+- `Phase 4`: 입력 검증 구현 완료
+- `Phase 5`: 정규화 구현 완료
+- 다음 우선순위: `Phase 6 ~ Phase 10` 백엔드 구현
 - 그 다음: `Phase 11 ~ Phase 14` 프론트 연결
 - 이후: `Phase 15 ~ Phase 18` 확장 및 안정화
+
+현재 구현 진행사항 상세는 아래 문서만 기준으로 본다.
+
+- `docs/current_implementation_status.md`
 
 ## 지금 바로 필요한 페이지
 

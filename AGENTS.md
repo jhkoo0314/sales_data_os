@@ -157,12 +157,18 @@
 
 가장 먼저 볼 문서:
 
+- `docs/current_implementation_status.md`
 - `docs/task.md`
 - `docs/08_design_system.md`
 - `docs/11_antigravity_html_design_brief.md`
 - `docs/12_report_template_dependencies.md`
 - `docs/13_backend_logic_request_prompt.md`
 - `docs/backend_architecture/`
+
+진행사항 기록 원칙:
+
+- 현재 구현 진행사항은 `docs/current_implementation_status.md`에만 기록한다
+- `docs/task.md`는 체크와 구현 순서 기준으로만 사용한다
 
 맥락 유지용 스킬:
 

@@ -13,6 +13,10 @@
 
 ## 현재 상태
 
+현재 구현 진행사항은 아래 문서만 기준으로 본다.
+
+- 현재 진행 문서: [`docs/current_implementation_status.md`](C:\sales_os\docs\current_implementation_status.md)
+
 지금까지 준비된 것:
 
 - 루트 기준 `Next.js` 기본 실행 환경
@@ -34,6 +38,7 @@
 
 ## 주요 문서
 
+- 현재 구현 진행 문서: [`docs/current_implementation_status.md`](C:\sales_os\docs\current_implementation_status.md)
 - 구현 계획: [`docs/task.md`](C:\sales_os\docs\task.md)
 - 디자인 시스템: [`docs/08_design_system.md`](C:\sales_os\docs\08_design_system.md)
 - Antigravity용 디자인 브리프: [`docs/11_antigravity_html_design_brief.md`](C:\sales_os\docs\11_antigravity_html_design_brief.md)

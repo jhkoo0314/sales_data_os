@@ -16,6 +16,11 @@
 
 이 문서는 `현재 루트 폴더에서 바로 개발을 시작할 수 있는 작업 지시서` 역할을 한다.
 
+진행사항 기록 원칙:
+
+- 현재 구현 진행사항 상세는 `docs/current_implementation_status.md`에만 기록한다
+- 이 문서는 Phase 체크와 구현 순서 기준으로만 유지한다
+
 ## 2. 사용자 정체성 이해
 
 `career-profile-writer` 스킬과 현재 문서를 함께 보면,
@@ -640,7 +645,7 @@ sales_os/
 
 - 디자인 뼈대와 기본 화면 구조가 준비됨
 
-### [ ] Phase 3. 입력 수용 구현
+### [x] Phase 3. 입력 수용 구현
 
 구현 시 먼저 볼 설계 문서:
 
@@ -652,6 +657,8 @@ sales_os/
   - 입력 업로드 API
 - `docs/backend_architecture/SALES_DATA_OS_FRONTEND_API_TABLE.md`
   - sources upload / monthly-upload 흐름
+- `docs/summary/intake_column_dictionary_intake_normalization_audit_20260331.md`
+  - intake 입력 구조와 컬럼 사전 요약
 
 목적:
 
@@ -670,7 +677,7 @@ sales_os/
 
 - 원본 데이터가 intake 단계로 안정적으로 들어올 수 있음
 
-### [ ] Phase 4. 입력 검증 구현
+### [x] Phase 4. 입력 검증 구현
 
 구현 시 먼저 볼 설계 문서:
 
@@ -682,27 +689,40 @@ sales_os/
   - intake / onboarding API
 - `docs/backend_architecture/SALES_DATA_OS_FRONTEND_API_TABLE.md`
   - intake analyze / result / confirm
+- `docs/summary/intake_column_dictionary_intake_normalization_audit_20260331.md`
+  - intake 검증, 자동보정, 컬럼 사전 요약
 
 목적:
 
-- 입력이 다음 단계로 넘어갈 수 있는 상태인지 실제로 판정한다
+- 입력을 무조건 막는 것이 아니라, 가능한 한 자동보정해서 정규화 단계로 넘길 수 있는 상태인지 실제로 판정한다
 
 핵심 구현:
 
 - 필수 파일 존재 여부 판정
-- 컬럼 존재 여부 점검
+- 컬럼 사전 / alias 기준 점검
+- 후보 컬럼 추정과 자동 매핑 보조
 - 타입/형식 sanity check
-- 날짜/월 범위 점검
+- 날짜/월 형식 보정 가능 여부 점검
 - source별 기간 계산
 - 공통 분석 구간 계산
 - 자동 수정 가능 항목과 사람 검토 필요 항목 분리
-- intake verdict 생성
+- `_onboarding` 기준 intake 결과 / package / confirmation 저장
+- `ready`, `ready_with_fixes`, `needs_review`, `blocked` 판정 생성
+
+주의:
+
+- 이 단계의 목적은 엄격 차단이 아니라 `정규화로 보낼 수 있게 만드는 intake gate`다
+- `blocked`는 정말로 다음 단계가 읽을 수 없을 때만 사용한다
+- 컬럼 흔들림, 형식 차이, 기간 차이, 일부 누락은 가능하면 자동보정 + 경고 + 검토 요청으로 처리한다
+- 이 단계에서 계산을 하지 않는다
+- 이 단계는 `_intake_staging` 직전 준비 단계로 본다
 
 완료 기준:
 
-- 어떤 입력이 왜 진행 가능/불가인지 설명 가능
+- 어떤 입력이 왜 진행 가능/보정 필요/검토 필요/차단인지 설명 가능
+- 정규화 단계가 읽을 수 있는 intake 메타와 설명 결과가 남는다
 
-### [ ] Phase 5. 정규화 구현
+### [x] Phase 5. 정규화 구현
 
 구현 시 먼저 볼 설계 문서:
 
@@ -712,6 +732,10 @@ sales_os/
   - `03_normalization_schema`
 - `docs/backend_architecture/SALES_DATA_OS_WEB_BACKEND_API_SPEC.md`
   - pipeline 실행 전 데이터 기준
+- `docs/summary/intake_column_dictionary_intake_normalization_audit_20260331.md`
+  - intake와 normalization 연결 요약
+- `docs/summary/original_project_normalization_adapter_staging_research_20260331.md`
+  - 원본 프로젝트의 adapter / staging / normalization 조사 결과
 
 목적:
 
@@ -728,6 +752,13 @@ sales_os/
 
 - KPI 계산 입력 구조가 회사별 차이 없이 통일됨
 
+현재 구현 메모:
+
+- `_intake_staging/{source_key}.json` 생성
+- `data/standardized/{company_key}/{module}/standardized_*.json` 생성
+- 모듈별 `normalization_report.json` 생성
+- 정규화 실행/조회 API 추가
+
 ### [ ] Phase 6. KPI 계산과 Result Asset Base 구현
 
 구현 시 먼저 볼 설계 문서:
@@ -742,6 +773,10 @@ sales_os/
   - `07_result_asset_payload_spec`
 - `docs/backend_architecture/CRM_KPI_FORMULA_SPEC.md`
   - CRM 11개 지표 계산 규칙
+- `docs/summary/kpi_module_research_20260331.md`
+  - KPI 모듈 조사 요약
+- `docs/summary/original_project_result_asset_payload_artifact_research_20260331.md`
+  - 원본 프로젝트 result asset 구조 조사 요약
 
 목적:
 
@@ -772,6 +807,10 @@ sales_os/
   - validation summary 구조
 - `docs/backend_architecture/SALES_DATA_OS_FRONTEND_API_TABLE.md`
   - validation / module result API
+- `docs/summary/original_project_validation_layer_research_20260331.md`
+  - 원본 프로젝트 validation layer 조사 요약
+- `docs/summary/original_project_result_asset_payload_artifact_research_20260331.md`
+  - validation 입력/출력과 result asset 연결 요약
 
 목적:
 
@@ -802,6 +841,10 @@ sales_os/
   - `08_builder_template_mapping`
 - `docs/backend_architecture/SALES_DATA_OS_WEB_BACKEND_API_SPEC.md`
   - builder / report API
+- `docs/summary/original_project_result_asset_payload_artifact_research_20260331.md`
+  - result asset / payload / artifact 조사 요약
+- `docs/summary/original_project_builder_operation_research_20260331.md`
+  - builder 입력 계약과 템플릿 연결 조사 요약
 
 목적:
 
@@ -831,6 +874,10 @@ sales_os/
   - builder / report API
 - `docs/backend_architecture/SALES_DATA_OS_FRONTEND_API_TABLE.md`
   - builder reports / render / artifacts
+- `docs/summary/original_project_builder_operation_research_20260331.md`
+  - 원본 프로젝트 builder 운영 조사 요약
+- `docs/summary/original_project_result_asset_payload_artifact_research_20260331.md`
+  - builder 산출물 / artifact 구조 요약
 
 목적:
 
@@ -858,6 +905,12 @@ sales_os/
   - pipeline 실행 / run / validation / builder API
 - `docs/backend_architecture/SALES_DATA_OS_PLANNER_SUMMARY.md`
   - 전체 흐름 요약
+- `docs/summary/original_project_worker_runtime_research_20260331.md`
+  - 원본 프로젝트 worker runtime 조사 요약
+- `docs/summary/original_project_validation_layer_research_20260331.md`
+  - worker와 validation 연결 요약
+- `docs/summary/original_project_builder_operation_research_20260331.md`
+  - worker와 builder 연결 요약
 
 목적:
 
@@ -887,6 +940,8 @@ sales_os/
   - 회사 선택 / 업로드 / intake / pipeline 호출 흐름
 - `docs/backend_architecture/SALES_DATA_OS_WEB_BACKEND_API_SPEC.md`
   - companies / sources / intake / pipeline API
+- `docs/summary/intake_column_dictionary_intake_normalization_audit_20260331.md`
+  - 업로드 / intake 결과를 화면에 붙일 때 참고할 요약
 
 목적:
 
@@ -922,6 +977,10 @@ sales_os/
   - validation summary / runs / run artifacts
 - `docs/backend_architecture/SALES_DATA_OS_WEB_BACKEND_API_SPEC.md`
   - validation summary 구조
+- `docs/summary/original_project_validation_layer_research_20260331.md`
+  - validation summary / evidence 구조 요약
+- `docs/summary/original_project_worker_runtime_research_20260331.md`
+  - run step / pipeline summary 구조 요약
 
 목적:
 
@@ -953,6 +1012,10 @@ sales_os/
   - builder reports / artifacts
 - `docs/backend_architecture/SALES_DATA_OS_WEB_BACKEND_API_SPEC.md`
   - builder / report API
+- `docs/summary/original_project_builder_operation_research_20260331.md`
+  - 보고서 / artifacts / preview 구조 요약
+- `docs/summary/original_project_result_asset_payload_artifact_research_20260331.md`
+  - artifact / report context 구조 요약
 
 목적:
 
@@ -984,6 +1047,10 @@ sales_os/
   - 주요 요청/응답 구조
 - `docs/backend_architecture/SALES_DATA_OS_FRONTEND_API_TABLE.md`
   - 프론트가 바로 써야 하는 상태값 표
+- `docs/summary/original_project_result_asset_payload_artifact_research_20260331.md`
+  - run / artifact / payload 데이터 계약 요약
+- `docs/summary/original_project_worker_runtime_research_20260331.md`
+  - run 상태 저장과 worker 흐름 요약
 
 목적:
 
@@ -1014,6 +1081,10 @@ sales_os/
   - RADAR 관련 구간
 - `docs/backend_architecture/SALES_DATA_OS_PLANNER_SUMMARY.md`
   - RADAR 역할 요약
+- `docs/summary/kpi_module_research_20260331.md`
+  - KPI 모듈과 RADAR 입력 관계 요약
+- `docs/summary/original_project_validation_layer_research_20260331.md`
+  - validation 이후 전달 구조 요약
 
 목적:
 
