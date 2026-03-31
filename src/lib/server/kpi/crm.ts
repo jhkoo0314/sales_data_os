@@ -3,6 +3,7 @@ import {
   avg,
   cleanText,
   clip01,
+  normalizeHospitalNameKey,
   readLookupRows,
   readStandardizedPayload,
   toDateToken,
@@ -37,7 +38,7 @@ export async function buildCrmResultAsset(
     const repId = cleanText(row.rep_id || row["영업사원코드"]) || byRepName.get(repName)?.repId || "";
     const repMeta = repMasterById.get(repId);
     const hospitalName = cleanText(row.account || row["병원명"]);
-    const accountMeta = byAccountName.get(hospitalName);
+    const accountMeta = byAccountName.get(hospitalName) || byAccountName.get(normalizeHospitalNameKey(hospitalName));
     const activityDate = toDateToken(row.activity_date || row["실행일"]);
     return {
       metricMonth: toMonthToken(row.period || row.metric_month || activityDate),

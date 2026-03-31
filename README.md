@@ -31,6 +31,7 @@
 - `Phase 8. payload 조립 구현` 완료
 - `Phase 9. Builder 구현` 완료
 - `Phase 9` 템플릿 계약 복원 및 Territory/CRM lazy-load 주입 정상화 완료
+- `Prescription` 원본 대비 주요 수치(`detail_asset_counts`, `rule_applied_count`) 동기화 완료
 - 백엔드 로직 설계 문서 완료
 - Python/worker 의존성 파일 정리
 - 보고서 템플릿 검토 및 패키지 기준 정리
@@ -40,6 +41,12 @@
 - `Phase 10` 백엔드 구현
 - 구현 순서:
   - `Phase 10` worker runtime
+- `Prescription` 템플릿 미세 계산 보정
+  - `Data Flow Distribution` 값 차이 조정
+  - `Ingest Merge` `83 row` 차이 조정
+- 다음 작업 예정:
+  - `RADAR` 템플릿 점검/보정
+  - `total_valid` 템플릿 점검/보정
 - Supabase 실제 연결
 - Python worker 실제 구현
 - 프론트엔드와 실제 엔진 연결

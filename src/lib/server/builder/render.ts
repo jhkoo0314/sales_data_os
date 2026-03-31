@@ -142,10 +142,25 @@ function injectSandboxData(html: string, payload: unknown): string {
   );
 }
 
-function injectPrescriptionDetails(html: string, detailPayload: Record<string, unknown>): string {
-  const injection = `window.__PRESCRIPTION_DETAIL_DATA__ = ${escapeScriptJson(detailPayload)};`;
-  const pattern = /window\.__PRESCRIPTION_DETAIL_DATA__\s*=\s*window\.__PRESCRIPTION_DETAIL_DATA__\s*\|\|\s*\{\};/;
-  return html.replace(pattern, injection);
+function buildSandboxBranchChunkName(branchName: string): string {
+  const token = String(branchName ?? "")
+    .trim()
+    .replace(/[^A-Za-z0-9_-]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  const digest = Array.from(String(branchName ?? "")).reduce((sum, char) => {
+    return (sum * 31 + char.charCodeAt(0)) >>> 0;
+  }, 7);
+  return `${token || "branch"}__${digest.toString(16)}.js`;
+}
+
+function buildPrescriptionDetailChunkName(bucket: string, key: string): string {
+  const safeBucket = String(bucket ?? "").trim().replace(/[^A-Za-z0-9_-]+/g, "_") || "detail";
+  const safeKey = String(key ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^0-9a-z]+/g, "_")
+    .replace(/^_+|_+$/g, "") || "all";
+  return `${safeBucket}__${safeKey}.js`;
 }
 
 function injectTerritoryDetails(
@@ -191,21 +206,88 @@ function injectRadarData(html: string, payload: unknown): string {
   );
 }
 
-function buildPrescriptionDetailData(payload: BuilderPayloadStandard): Record<string, unknown> {
-  const templatePayload = payload.template_payload as Record<string, unknown>;
-  return {
-    claims: {
-      all: (templatePayload.claims as unknown[]) ?? []
-    },
-    gaps: {
-      all: ((templatePayload.gaps as Record<string, unknown> | undefined)?.rows as unknown[]) ?? []
-    },
-    hospital_traces: {
-      all: (templatePayload.hospital_traces as unknown[]) ?? []
-    },
-    rep_kpis: {
-      all: (templatePayload.rep_kpis as unknown[]) ?? []
+function buildPrescriptionDetailGroups(rows: Array<Record<string, unknown>>): Record<string, Array<Record<string, unknown>>> {
+  const groups: Record<string, Array<Record<string, unknown>>> = { ALL: rows };
+  for (const row of rows) {
+    const periodType = String(row.period_type ?? "").trim().toLowerCase();
+    const monthKey = String(row.year_month ?? "").trim();
+    const quarterKey = String(row.year_quarter ?? "").trim();
+    if (periodType === "month" && monthKey) {
+      groups[monthKey] ??= [];
+      groups[monthKey].push(row);
     }
+    if (quarterKey) {
+      groups[quarterKey] ??= [];
+      groups[quarterKey].push(row);
+    }
+  }
+  return groups;
+}
+
+async function preparePrescriptionChunkAssets(
+  companyKey: string,
+  payload: BuilderPayloadStandard
+): Promise<BuilderPayloadStandard> {
+  const templatePayload = { ...(payload.template_payload as Record<string, unknown>) };
+  const assetDirName = `${REPORT_OUTPUTS.prescription.fileName}_assets`;
+  const assetDir = path.join(builderRoot(companyKey), assetDirName);
+  await ensureDir(assetDir);
+
+  const existingNames = await fs.readdir(assetDir);
+  await Promise.all(
+    existingNames
+      .filter((name) => name.toLowerCase().endsWith(".js"))
+      .map((name) => fs.unlink(path.join(assetDir, name)))
+  );
+
+  const buckets: Array<{ key: string; rows: Array<Record<string, unknown>> }> = [
+    { key: "claims", rows: ((templatePayload.claims as unknown[]) ?? []) as Array<Record<string, unknown>> },
+    { key: "gaps", rows: ((templatePayload.gaps as unknown[]) ?? []) as Array<Record<string, unknown>> },
+    { key: "hospital_traces", rows: ((templatePayload.hospital_traces as unknown[]) ?? []) as Array<Record<string, unknown>> },
+    { key: "rep_kpis", rows: ((templatePayload.rep_kpis as unknown[]) ?? []) as Array<Record<string, unknown>> }
+  ];
+
+  const detailAssetManifest: Record<string, Record<string, string>> = {};
+  const detailAssetCounts: Record<string, number> = {};
+
+  for (const bucket of buckets) {
+    detailAssetCounts[bucket.key] = bucket.rows.length;
+    const groups = buildPrescriptionDetailGroups(bucket.rows);
+    const manifest: Record<string, string> = {};
+    for (const [cacheKey, groupRows] of Object.entries(groups)) {
+      if (!groupRows.length) continue;
+      const chunkName = buildPrescriptionDetailChunkName(bucket.key, cacheKey);
+      manifest[cacheKey] = chunkName;
+      const chunkScript =
+        "window.__PRESCRIPTION_DETAIL_DATA__ = window.__PRESCRIPTION_DETAIL_DATA__ || {};\n" +
+        `window.__PRESCRIPTION_DETAIL_DATA__[${JSON.stringify(bucket.key)}] = window.__PRESCRIPTION_DETAIL_DATA__[${JSON.stringify(bucket.key)}] || {};\n` +
+        `window.__PRESCRIPTION_DETAIL_DATA__[${JSON.stringify(bucket.key)}][${JSON.stringify(cacheKey)}] = ${escapeScriptJson(groupRows)};\n`;
+      await fs.writeFile(path.join(assetDir, chunkName), chunkScript, "utf8");
+    }
+    detailAssetManifest[bucket.key] = manifest;
+  }
+
+  return {
+    ...payload,
+    template_payload: {
+      ...templatePayload,
+      claims: [],
+      gaps: [],
+      hospital_traces: [],
+      rep_kpis: [],
+      data_mode: "chunked_prescription_detail_assets_v1",
+      asset_base: assetDirName,
+      detail_asset_manifest: detailAssetManifest,
+      detail_asset_counts: detailAssetCounts
+    },
+    asset_manifest: [
+      ...payload.asset_manifest.filter((item) => item.asset_type !== "prescription_detail_assets"),
+      {
+        asset_type: "prescription_detail_assets",
+        path: toPosixRelativePath(assetDir),
+        note: "Prescription 상세 데이터를 lazy load용 js 조각으로 분리"
+      }
+    ]
   };
 }
 
@@ -414,6 +496,70 @@ async function prepareTerritoryChunkAssets(
   };
 }
 
+async function prepareSandboxChunkAssets(
+  companyKey: string,
+  payload: BuilderPayloadStandard
+): Promise<BuilderPayloadStandard> {
+  const templatePayload = { ...(payload.template_payload as Record<string, unknown>) };
+  const branches = ((templatePayload.branches as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>;
+  const assetDirName = `${REPORT_OUTPUTS.sandbox.fileName}_assets`;
+  const assetDir = path.join(builderRoot(companyKey), assetDirName);
+  await ensureDir(assetDir);
+
+  const existingNames = await fs.readdir(assetDir);
+  await Promise.all(
+    existingNames
+      .filter((name) => name.toLowerCase().endsWith(".js"))
+      .map((name) => fs.unlink(path.join(assetDir, name)))
+  );
+
+  const branchAssetManifest: Record<string, string> = {};
+  const branchIndex: Array<Record<string, unknown>> = [];
+  let memberCount = 0;
+
+  for (const [branchName, branchPayload] of Object.entries(branches)) {
+    const chunkName = buildSandboxBranchChunkName(branchName);
+    const members = ((((branchPayload as Record<string, unknown> | undefined) ?? {}).members as unknown[]) ?? []) as Array<
+      Record<string, unknown>
+    >;
+    branchAssetManifest[branchName] = chunkName;
+    branchIndex.push({
+      key: branchName,
+      label: branchName,
+      member_count: members.length
+    });
+    memberCount += members.length;
+    const chunkScript =
+      "window.__SANDBOX_BRANCH_DATA__ = window.__SANDBOX_BRANCH_DATA__ || {};\n" +
+      `window.__SANDBOX_BRANCH_DATA__[${JSON.stringify(branchName)}] = ${escapeScriptJson(branchPayload)};\n`;
+    await fs.writeFile(path.join(assetDir, chunkName), chunkScript, "utf8");
+  }
+
+  return {
+    ...payload,
+    template_payload: {
+      ...templatePayload,
+      data_mode: "chunked_sandbox_branch_assets_v1",
+      asset_base: assetDirName,
+      branches: {},
+      branch_asset_manifest: branchAssetManifest,
+      branch_index: branchIndex,
+      branch_asset_counts: {
+        branch_count: branchIndex.length,
+        member_count: memberCount
+      }
+    },
+    asset_manifest: [
+      ...payload.asset_manifest.filter((item) => item.asset_type !== "sandbox_branch_assets"),
+      {
+        asset_type: "sandbox_branch_assets",
+        path: toPosixRelativePath(assetDir),
+        note: "Sandbox 지점 상세 데이터를 lazy load용 js 조각으로 분리"
+      }
+    ]
+  };
+}
+
 function buildTerritoryDetailData(payload: BuilderPayloadStandard): {
   repData: Record<string, unknown>;
   monthData: Record<string, unknown>;
@@ -526,8 +672,7 @@ function renderHtmlForModule(moduleKey: BuilderModuleKey, payload: BuilderPayloa
       return replaceTerritoryLeafletAssets(injected);
     }
     case "prescription": {
-      const injected = injectWindowData(templateHtml, "__PRESCRIPTION_DATA__", payload.template_payload);
-      return injectPrescriptionDetails(injected, buildPrescriptionDetailData(payload));
+      return injectWindowData(templateHtml, "__PRESCRIPTION_DATA__", payload.template_payload);
     }
     case "radar":
       return injectRadarData(templateHtml, payload.template_payload);
@@ -718,8 +863,12 @@ export async function runBuilderRender(input: {
     const payload =
       moduleKey === "crm"
         ? await prepareCrmChunkAssets(companyKey, sourcePayload)
+        : moduleKey === "sandbox"
+          ? await prepareSandboxChunkAssets(companyKey, sourcePayload)
         : moduleKey === "territory"
           ? await prepareTerritoryChunkAssets(companyKey, sourcePayload)
+          : moduleKey === "prescription"
+            ? await preparePrescriptionChunkAssets(companyKey, sourcePayload)
           : sourcePayload;
 
     const templateInfo = REPORT_OUTPUTS[moduleKey];

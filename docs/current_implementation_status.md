@@ -568,6 +568,22 @@
     실제 템플릿 계약 복원과 lazy-load 주입 정상화까지 끝난 상태다
   - `daon_pharma`는 Builder 화면 검증 기준 정상 상태로 본다
 
+`2026-03-31` Prescription 원본 동기화 보강(추가):
+
+- `prescription` payload/상세 자산을 원본(`C:\sfe_master_ops`) 기준으로 다시 맞췄다
+- `daon_pharma` 기준 현재 일치 확인:
+  - `detail_asset_counts.hospital_traces = 43414`
+  - `detail_asset_counts.rep_kpis = 6360`
+  - `detail_asset_counts.claims = 300`
+  - `diagnostics.rule_applied_count = 118`
+  - `overview.flow_completion_rate = 1`
+- 아직 남은 보정:
+  - `Data Flow Distribution` 값 미세 차이 조정
+  - `Ingest Merge` 단계 `83 row` 차이 조정
+- 다음 작업 예정:
+  - `RADAR` 템플릿 원본 대조 점검/보정
+  - `total_valid` 템플릿 원본 대조 점검/보정
+
 ## 5-1. 후속 메모
 
 아래는 `Phase 5-1 완료 조건`은 아니지만,

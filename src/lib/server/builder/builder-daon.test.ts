@@ -26,12 +26,18 @@ describe.sequential("builder render for daon_pharma", () => {
       await fs.readFile(path.join(builderRoot, "territory_map_preview_payload_standard.json"), "utf8")
     ) as { template_payload?: Record<string, unknown> };
     const crmAssetDir = path.join(builderRoot, "crm_analysis_preview_assets");
+    const sandboxAssetDir = path.join(builderRoot, "sandbox_report_preview_assets");
     const territoryAssetDir = path.join(builderRoot, "territory_map_preview_assets");
     const crmAssetFiles = await fs.readdir(crmAssetDir);
+    const sandboxAssetFiles = await fs.readdir(sandboxAssetDir);
     const territoryAssetFiles = await fs.readdir(territoryAssetDir);
 
     expect(sandboxHtml).toContain('"official_kpi_6"');
     expect(sandboxHtml).not.toContain("/*DATA_JSON_PLACEHOLDER*/");
+    expect(sandboxHtml).toContain('"data_mode": "chunked_sandbox_branch_assets_v1"');
+    expect(sandboxHtml).toContain('"branch_asset_manifest"');
+    expect(sandboxHtml).toContain('"total_prod_analysis"');
+    expect(sandboxAssetFiles.some((name) => name.toLowerCase().endsWith(".js"))).toBe(true);
     expect(radarHtml).toContain('window.__RADAR_DATA__ = {');
     expect(radarHtml).toContain('"signal_count"');
     expect(crmHtml).toContain('window.__CRM_DATA__ = {');

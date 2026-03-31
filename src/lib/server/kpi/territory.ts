@@ -1,5 +1,6 @@
 import {
   cleanText,
+  normalizeHospitalNameKey,
   readLookupRows,
   readStandardizedPayload,
   toDateToken,
@@ -224,6 +225,7 @@ export async function buildTerritoryResultAsset(
       cleanText(row.account_id) ||
       assignmentByName.get(hospitalName) ||
       byAccountName.get(hospitalName)?.accountId ||
+      byAccountName.get(normalizeHospitalNameKey(hospitalName))?.accountId ||
       hospitalNameToId.get(hospitalName) ||
       "";
     const activityDate = toDateToken(row.activity_date || row["실행일"]);
@@ -277,7 +279,8 @@ export async function buildTerritoryResultAsset(
     const hospitalId = cleanText(row.hospital_id);
     const assignedMeta = assignmentById.get(hospitalId);
     const hospitalName = cleanText(row.hospital_name) || assignedMeta?.account_name || "";
-    const lookupMeta = byAccountName.get(hospitalName);
+    const lookupMeta =
+      byAccountName.get(hospitalName) || byAccountName.get(normalizeHospitalNameKey(hospitalName));
     const activityMeta = activityMetaByHospitalId.get(hospitalId);
     const repId = assignedMeta?.rep_id || lookupMeta?.repId || "UNASSIGNED";
     const repName = assignedMeta?.rep_name || lookupMeta?.repName || repNames.get(repId) || "미배정";

@@ -1,4 +1,12 @@
-import { cleanText, readLookupRows, readStandardizedPayload, toMonthToken, toNumber, avg } from "@/lib/server/kpi/shared";
+import {
+  avg,
+  cleanText,
+  normalizeHospitalNameKey,
+  readLookupRows,
+  readStandardizedPayload,
+  toMonthToken,
+  toNumber
+} from "@/lib/server/kpi/shared";
 
 export async function buildSandboxResultAsset(
   companyKey: string,
@@ -20,7 +28,9 @@ export async function buildSandboxResultAsset(
   const crmByHospitalMonth = new Map<string, { totalVisits: number; detailCallCount: number }>();
   for (const row of crmActivity?.rows ?? []) {
     const hospitalName = cleanText(row.account || row["병원명"]);
-    const hospitalId = cleanText(row["병원코드"]) || byAccountName.get(hospitalName)?.accountId || hospitalName;
+    const hospitalLookup =
+      byAccountName.get(hospitalName) || byAccountName.get(normalizeHospitalNameKey(hospitalName));
+    const hospitalId = cleanText(row["병원코드"]) || hospitalLookup?.accountId || hospitalName;
     const metricMonth = toMonthToken(row.metric_month || row.activity_date || row["실행일"]);
     const key = `${hospitalId}::${metricMonth}`;
     const prev = crmByHospitalMonth.get(key) ?? { totalVisits: 0, detailCallCount: 0 };
@@ -54,17 +64,27 @@ export async function buildSandboxResultAsset(
   };
 
   for (const row of sales.rows) {
-    const hospitalId = cleanText(row.account || row["병원코드"]);
+    const hospitalName = cleanText(row["병원명"]);
+    const hospitalLookup =
+      byAccountName.get(hospitalName) || byAccountName.get(normalizeHospitalNameKey(hospitalName));
+    const hospitalId =
+      cleanText(row.account || row["병원코드"]) || hospitalLookup?.accountId || hospitalName;
     const metricMonth = toMonthToken(row.period || row["매출월"]);
-    const record = getOrCreate(hospitalId, metricMonth, cleanText(row["병원명"]));
+    const record = getOrCreate(hospitalId, metricMonth, hospitalName);
     record.total_sales = toNumber(record.total_sales) + toNumber(row.amount || row["매출금액"]);
     record.total_quantity = toNumber(record.total_quantity) + toNumber(row["매출수량"]);
     record.has_sales = true;
   }
   for (const row of target?.rows ?? []) {
-    const hospitalId = cleanText(row.account || row["병원코드"] || row["거래처코드"]);
+    const hospitalName = cleanText(row["병원명"] || row["거래처명"]);
+    const hospitalLookup =
+      byAccountName.get(hospitalName) || byAccountName.get(normalizeHospitalNameKey(hospitalName));
+    const hospitalId =
+      cleanText(row.account || row["병원코드"] || row["거래처코드"]) ||
+      hospitalLookup?.accountId ||
+      hospitalName;
     const metricMonth = toMonthToken(row.period || row["목표월"]);
-    const record = getOrCreate(hospitalId, metricMonth, cleanText(row["병원명"] || row["거래처명"]));
+    const record = getOrCreate(hospitalId, metricMonth, hospitalName);
     record.total_target = toNumber(record.total_target) + toNumber(row.target_value || row["목표금액"]);
     record.has_target = true;
   }
@@ -146,7 +166,25 @@ export async function buildSandboxResultAsset(
   const salesHospitals = new Set(
     hospitalRecords.filter((row) => Boolean(row.has_sales)).map((row) => cleanText(row.hospital_id))
   );
+  const targetHospitals = new Set(
+    hospitalRecords.filter((row) => Boolean(row.has_target)).map((row) => cleanText(row.hospital_id))
+  );
   const crmSalesJoined = [...crmHospitals].filter((hospitalId) => salesHospitals.has(hospitalId));
+  const fullyJoinedHospitals = [...crmHospitals].filter(
+    (hospitalId) => salesHospitals.has(hospitalId) && targetHospitals.has(hospitalId)
+  );
+  const crmRxJoined = [...crmHospitals].filter((hospitalId) =>
+    hospitalRecords.some((row) => cleanText(row.hospital_id) === hospitalId && Boolean(row.has_rx))
+  );
+  const crmSalesJoinRate = Number((crmSalesJoined.length / Math.max(crmHospitals.size, 1)).toFixed(4));
+  const fullJoinRate = Number((fullyJoinedHospitals.length / Math.max(crmHospitals.size, 1)).toFixed(4));
+  const proxyMetrics = {
+    sandbox_proxy_integrity_score: Number(
+      Math.min(100, crmSalesJoinRate * 50 + fullJoinRate * 40 + ((target?.row_count ?? 0) > 0 ? 10 : 0)).toFixed(1)
+    ),
+    sandbox_proxy_orphan_sales_hospitals: [...salesHospitals].filter((hospitalId) => !crmHospitals.has(hospitalId)).length,
+    sandbox_proxy_orphan_crm_hospitals: [...crmHospitals].filter((hospitalId) => !salesHospitals.has(hospitalId)).length
+  };
 
   const asset = {
     schema_version: "sandbox_result_asset_v1",
@@ -164,10 +202,13 @@ export async function buildSandboxResultAsset(
         hospitalRecords.map((row) => toNumber(row.attainment_rate)).filter((value) => value > 0)
       ),
       total_visits: hospitalRecords.reduce((sum, row) => sum + toNumber(row.total_visits), 0),
-      fully_joined_hospitals: hospitalRecords.filter((row) => Boolean(row.is_fully_joined)).length,
+      fully_joined_hospitals: fullyJoinedHospitals.length,
       rx_linked_hospitals: hospitalRecords.filter((row) => Boolean(row.has_rx)).length,
       metric_months: months,
-      custom_metrics: officialKpi6
+      custom_metrics: {
+        ...officialKpi6,
+        ...proxyMetrics
+      }
     },
     domain_quality: {
       crm_record_count: crmRepMonthly,
@@ -193,14 +234,12 @@ export async function buildSandboxResultAsset(
     },
     join_quality: {
       hospitals_with_crm_and_sales: crmSalesJoined.length,
-      hospitals_with_all_three: hospitalRecords.filter((row) => Boolean(row.is_fully_joined)).length,
-      hospitals_with_rx_added: hospitalRecords.filter((row) => Boolean(row.has_rx && row.has_crm)).length,
-      crm_sales_join_rate: Number((crmSalesJoined.length / Math.max(crmHospitals.size, 1)).toFixed(4)),
-      full_join_rate: Number(
-        (hospitalRecords.filter((row) => Boolean(row.is_fully_joined)).length / Math.max(crmHospitals.size, 1)).toFixed(4)
-      ),
-      orphan_sales_hospitals: [...salesHospitals].filter((hospitalId) => !crmHospitals.has(hospitalId)).length,
-      orphan_crm_hospitals: [...crmHospitals].filter((hospitalId) => !salesHospitals.has(hospitalId)).length
+      hospitals_with_all_three: fullyJoinedHospitals.length,
+      hospitals_with_rx_added: crmRxJoined.length,
+      crm_sales_join_rate: crmSalesJoinRate,
+      full_join_rate: fullJoinRate,
+      orphan_sales_hospitals: proxyMetrics.sandbox_proxy_orphan_sales_hospitals,
+      orphan_crm_hospitals: proxyMetrics.sandbox_proxy_orphan_crm_hospitals
     },
     hospital_records: hospitalRecords,
     handoff_candidates: [

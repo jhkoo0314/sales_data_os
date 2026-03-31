@@ -1431,6 +1431,18 @@ Phase 6 저장 경로 메모:
   현재 프로젝트 경로 기준 주입 구조와 원본 템플릿 계약을 다시 맞춘 상태다
 - `daon_pharma`는 Builder 화면 검증용 기준 회사로 계속 사용한다
 
+`2026-03-31` Prescription 잔여 보정 체크:
+
+- [x] 원본 대비 주요 수치 동기화
+  - `detail_asset_counts.hospital_traces=43414`
+  - `detail_asset_counts.rep_kpis=6360`
+  - `detail_asset_counts.claims=300`
+  - `diagnostics.rule_applied_count=118`
+- [ ] `Data Flow Distribution` 값 미세 차이 조정
+- [ ] `Ingest Merge` `83 row` 차이 조정
+- [ ] `RADAR` 템플릿 원본 대조 점검/보정
+- [ ] `total_valid` 템플릿 원본 대조 점검/보정
+
 ### [ ] Phase 10. Worker Runtime 구현
 
 구현 시 먼저 볼 설계 문서:

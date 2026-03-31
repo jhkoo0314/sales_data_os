@@ -66,6 +66,22 @@ export function cleanText(value: unknown): string {
   return String(value ?? "").trim();
 }
 
+export function normalizeHospitalNameKey(value: unknown): string {
+  const text = cleanText(value);
+  if (!text) {
+    return "";
+  }
+  return text
+    .toLowerCase()
+    .replace(/\(.*?\)/g, "")
+    .replace(/[.\-]/g, "")
+    .replace(/\s+/g, "")
+    .replace(/의원$/g, "")
+    .replace(/병원$/g, "")
+    .replace(/한의원$/g, "")
+    .trim();
+}
+
 export function toNumber(value: unknown, fallback = 0): number {
   const text = String(value ?? "").replace(/,/g, "").replace(/[^0-9.\-]/g, "");
   if (!text) {
@@ -125,6 +141,7 @@ export async function readStandardizedPayload(
 }
 
 export async function readLookupRows(companyKey: string): Promise<{
+  byAccountId: Map<string, LookupRow>;
   byAccountName: Map<string, LookupRow>;
   byRepName: Map<string, LookupRow>;
 }> {
@@ -133,6 +150,7 @@ export async function readLookupRows(companyKey: string): Promise<{
     "crm",
     "standardized_crm_account_assignment.json"
   );
+  const byAccountId = new Map<string, LookupRow>();
   const byAccountName = new Map<string, LookupRow>();
   const byRepName = new Map<string, LookupRow>();
   for (const row of assignment?.rows ?? []) {
@@ -144,12 +162,19 @@ export async function readLookupRows(companyKey: string): Promise<{
       branchId: cleanText(row.branch_id),
       branchName: cleanText(row.branch_name)
     };
+    if (normalized.accountId) {
+      byAccountId.set(normalized.accountId, normalized);
+    }
     if (normalized.accountName) {
       byAccountName.set(normalized.accountName, normalized);
+      const normalizedAccountKey = normalizeHospitalNameKey(normalized.accountName);
+      if (normalizedAccountKey) {
+        byAccountName.set(normalizedAccountKey, normalized);
+      }
     }
     if (normalized.repName) {
       byRepName.set(normalized.repName, normalized);
     }
   }
-  return { byAccountName, byRepName };
+  return { byAccountId, byAccountName, byRepName };
 }

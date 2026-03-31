@@ -30,6 +30,8 @@ import type {
   BuilderPayloadStandard,
   BuilderTemplateKey
 } from "@/lib/server/builder/types";
+import { buildSandboxTemplatePayloadData } from "@/lib/server/builder/sandbox-payload";
+import { buildPrescriptionTemplatePayloadData } from "@/lib/server/builder/prescription-payload";
 
 const TEMPLATE_PATHS: Record<BuilderModuleKey, string> = {
   crm: "workers/templates/reports/crm_analysis_template.html",
@@ -650,58 +652,6 @@ function buildCrmTemplatePayload(
   };
 }
 
-function buildSandboxTemplatePayload(asset: Record<string, unknown>, period: BuilderPayloadStandard["period"]) {
-  const hospitals = ((asset.hospital_records as unknown[]) ?? []) as Array<Record<string, unknown>>;
-  const analysisSummary = ((asset.analysis_summary as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>;
-  const domainQuality = ((asset.domain_quality as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>;
-  const joinQuality = ((asset.join_quality as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>;
-  const branches = Object.fromEntries(
-    groupCount(hospitals, "branch_name").map((item) => [
-      item.key,
-      {
-        branch_key: item.key,
-        hospital_count: item.count,
-        rows: hospitals.filter((row) => String(row.branch_name ?? "unknown").trim() === item.key).slice(0, 100)
-      }
-    ])
-  );
-
-  return {
-    overview: {
-      report_title: REPORT_TITLES.sandbox,
-      period_label: period.label
-    },
-    official_kpi_6: (analysisSummary.custom_metrics ?? {}) as Record<string, unknown>,
-    layer1: {
-      analysis_summary: analysisSummary,
-      domain_quality: domainQuality,
-      join_quality: joinQuality
-    },
-    branches,
-    total_summary: analysisSummary,
-    block_payload: {
-      hospitals: topRows(hospitals, 100),
-      handoff_candidates: topRows((asset.handoff_candidates as unknown[]) as Array<Record<string, unknown>>, 20)
-    },
-    branch_summary: domainQuality,
-    branch_member_summary: joinQuality,
-    product_analysis: topRows((asset.product_analysis as unknown[]) as Array<Record<string, unknown>>, 20),
-    analysis: analysisSummary,
-    correlation: asset.correlation ?? {},
-    adj_correlation: asset.adjusted_correlation ?? {},
-    coach_scenario: asset.coach_scenario ?? {},
-    coach_action: asset.coach_action ?? {},
-    data_health: {
-      domain_quality: domainQuality,
-      join_quality: joinQuality
-    },
-    missing_data: [
-      { metric: "orphan_sales_hospitals", value: toNumber(joinQuality.orphan_sales_hospitals) },
-      { metric: "orphan_crm_hospitals", value: toNumber(joinQuality.orphan_crm_hospitals) }
-    ]
-  };
-}
-
 function buildTerritoryTemplatePayload(asset: Record<string, unknown>, period: BuilderPayloadStandard["period"]) {
   const gaps = ((asset.gaps as unknown[]) ?? []) as Array<Record<string, unknown>>;
   const repIndex = ((asset.rep_index as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>;
@@ -745,30 +695,6 @@ function buildTerritoryTemplatePayload(asset: Record<string, unknown>, period: B
   };
 }
 
-function buildPrescriptionTemplatePayload(asset: Record<string, unknown>, period: BuilderPayloadStandard["period"]) {
-  return {
-    overview: {
-      report_title: REPORT_TITLES.prescription,
-      period_label: period.label,
-      ...(asset.lineage_summary ?? {})
-    },
-    filters: {
-      available_months: period.months,
-      default_month: period.end_month
-    },
-    flow_summary: asset.reconciliation_summary ?? {},
-    claims: topRows((asset.claims as unknown[]) as Array<Record<string, unknown>>, 100),
-    gaps: {
-      summary: asset.validation_gap_summary ?? {},
-      rows: topRows((asset.gaps as unknown[]) as Array<Record<string, unknown>>, 100)
-    },
-    hospital_traces: topRows((asset.hospital_traces as unknown[]) as Array<Record<string, unknown>>, 100),
-    rep_kpis: topRows((asset.rep_kpis as unknown[]) as Array<Record<string, unknown>>, 50),
-    flow_series: asset.flow_series ?? [],
-    flow_series_by_territory: asset.flow_series_by_territory ?? {}
-  };
-}
-
 function buildRadarTemplatePayload(asset: Record<string, unknown>, period: BuilderPayloadStandard["period"]) {
   const signals = ((asset.signals as unknown[]) ?? []) as Array<Record<string, unknown>>;
   const periodLabel = period.label === "period_unknown" ? String(asset.period_label ?? "") : period.label;
@@ -801,27 +727,38 @@ function buildRadarTemplatePayload(asset: Record<string, unknown>, period: Build
   };
 }
 
-function templatePayloadForModule(
+async function templatePayloadForModule(
   moduleKey: BuilderModuleKey,
   asset: Record<string, unknown>,
   period: BuilderPayloadStandard["period"],
   context: { companyKey: string; generatedAt: string; summary: ModuleValidationSummary }
-): Record<string, unknown> {
+): Promise<Record<string, unknown>> {
   switch (moduleKey) {
     case "crm":
       return buildCrmTemplatePayload(asset, period, context);
     case "sandbox":
-      return buildSandboxTemplatePayload(asset, period);
+      return buildSandboxTemplatePayloadData({
+        companyKey: context.companyKey,
+        asset,
+        period,
+        reportTitle: REPORT_TITLES.sandbox
+      });
     case "territory":
       return buildTerritoryTemplatePayload(asset, period);
     case "prescription":
-      return buildPrescriptionTemplatePayload(asset, period);
+      return buildPrescriptionTemplatePayloadData({
+        companyKey: context.companyKey,
+        asset,
+        period,
+        reportTitle: REPORT_TITLES.prescription,
+        summary: context.summary
+      });
     case "radar":
       return buildRadarTemplatePayload(asset, period);
   }
 }
 
-function createPayloadStandard(input: {
+async function createPayloadStandard(input: {
   companyKey: string;
   runId: string;
   generatedAt: string;
@@ -829,9 +766,14 @@ function createPayloadStandard(input: {
   moduleKey: BuilderModuleKey;
   asset: Record<string, unknown>;
   summary: ModuleValidationSummary;
-}): BuilderPayloadStandard {
+}): Promise<BuilderPayloadStandard> {
   const period = periodFromAsset(input.asset);
   const payloadPath = moduleBuilderPayloadPath(input.companyKey, input.moduleKey);
+  const templatePayload = await templatePayloadForModule(input.moduleKey, input.asset, period, {
+    companyKey: input.companyKey,
+    generatedAt: input.generatedAt,
+    summary: input.summary
+  });
   return {
     schema_version: "builder_payload_standard_v1",
     payload_type: "builder_payload_standard",
@@ -858,11 +800,7 @@ function createPayloadStandard(input: {
       module_status: input.summary.quality_status,
       generated_at: input.generatedAt
     },
-    template_payload: templatePayloadForModule(input.moduleKey, input.asset, period, {
-      companyKey: input.companyKey,
-      generatedAt: input.generatedAt,
-      summary: input.summary
-    }),
+    template_payload: templatePayload,
     asset_manifest: [
       {
         asset_type: "result_asset",
@@ -1010,7 +948,7 @@ export async function runBuilderPayload(input: {
       continue;
     }
 
-    const payload = createPayloadStandard({
+    const payload = await createPayloadStandard({
       companyKey,
       runId: validation.run_id,
       generatedAt,
