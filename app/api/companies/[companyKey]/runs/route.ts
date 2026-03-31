@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { listCompanySources } from "@/lib/server/shared/source-storage";
+import { listValidationRuns } from "@/lib/server/validation";
 
 export const runtime = "nodejs";
 
@@ -10,10 +10,10 @@ export async function GET(
 ) {
   try {
     const { companyKey } = await context.params;
-    const result = await listCompanySources(companyKey);
-    return NextResponse.json(result);
+    const runs = await listValidationRuns(companyKey);
+    return NextResponse.json({ company_key: companyKey, runs });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to load sources.";
+    const message = error instanceof Error ? error.message : "Failed to load runs.";
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }

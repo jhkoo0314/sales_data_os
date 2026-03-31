@@ -839,7 +839,7 @@ sales_os/
 4. `company_000002` 기준 alias / canonical column / 실행용 staging 보강
 5. normalization이 오래 걸리거나 멈추는 원인 추적과 보강
 6. `daon_pharma` 정상 raw와 `company_000002` dirty raw를 같은 기준으로 재검증
-7. 그 다음 `Phase 6`으로 진행
+7. 그 다음 `Phase 8`으로 진행
 
 Phase 5-1 수정 우선순위:
 
@@ -1031,7 +1031,7 @@ Phase 5-1 후속 운영 메모:
 - `필수 항목 / 있으면 좋은 항목` 구분은 현재 rules와 테스트 기준으로 고정했고, 화면 문구 세분화는 Phase 7 이후 이어서 다듬을 수 있다
 - `monthly_merge_pharma`는 월별 병합 기준 회사 이름으로 유지하고, 실데이터 절차 문서는 후속 운영 문서에서 더 자세히 확장할 수 있다
 
-### [ ] Phase 6. KPI 계산과 Result Asset Base 구현
+### [x] Phase 6. KPI 계산과 Result Asset Base 구현
 
 구현 시 먼저 볼 설계 문서:
 
@@ -1049,6 +1049,38 @@ Phase 5-1 후속 운영 메모:
   - KPI 모듈 조사 요약
 - `docs/summary/original_project_result_asset_payload_artifact_research_20260331.md`
   - 원본 프로젝트 result asset 구조 조사 요약
+- `docs/summary/phase6_kpi_engine_and_result_asset_research_20260331.md`
+  - 원본 KPI 엔진 / result asset / template 대조 조사 정리
+
+이번 단계 구현 순서:
+
+1. `CRM`
+- 참고 경로:
+  - `C:\sfe_master_ops\modules\kpi\crm_engine.py`
+  - `C:\sfe_master_ops\modules\crm\service.py`
+  - `C:\sfe_master_ops\result_assets\crm_result_asset.py`
+- 먼저 `CRM KPI 계산 -> crm_result_asset 생성`까지 고정
+
+2. `Sandbox`
+- 참고 경로:
+  - `C:\sfe_master_ops\modules\kpi\sandbox_engine.py`
+  - `C:\sfe_master_ops\modules\sandbox\service.py`
+  - `C:\sfe_master_ops\result_assets\sandbox_result_asset.py`
+- 먼저 `공식 KPI 6 -> sandbox_result_asset 생성`까지 고정
+
+3. `Territory / Prescription`
+- 참고 경로:
+  - `C:\sfe_master_ops\modules\kpi\territory_engine.py`
+  - `C:\sfe_master_ops\modules\territory\service.py`
+  - `C:\sfe_master_ops\modules\kpi\prescription_engine.py`
+  - `C:\sfe_master_ops\modules\prescription\service.py`
+- Phase 6에서는 최소 입출력 계약까지만 맞춰도 된다
+
+4. `RADAR`
+- 참고 경로:
+  - `C:\sfe_master_ops\modules\radar\service.py`
+  - `C:\sfe_master_ops\modules\radar\signal_engine.py`
+- Phase 6 필수 구현 대상은 아니고 구조 참고용이다
 
 목적:
 
@@ -1065,7 +1097,116 @@ Phase 5-1 후속 운영 메모:
 
 - 공식 KPI 엔진과 result asset 생성 흐름이 실제로 동작함
 
-### [ ] Phase 7. validation 구현
+현재 진행 메모:
+
+- [x] `src/lib/server/kpi.ts` 추가
+- [x] `src/lib/server/kpi/run.ts`, `types.ts`, `shared.ts`, `crm.ts`, `sandbox.ts`로 분리 시작
+- [x] `CRM KPI -> crm_result_asset.json` 생성
+- [x] `Sandbox KPI 6 -> sandbox_result_asset.json` 생성
+- [x] `Prescription result asset base` 추가
+- [x] `Territory result asset base` 최소 버전 추가
+- [x] `RADAR result asset base` 추가
+- [x] `POST /api/companies/[companyKey]/kpi/run` 추가
+- [x] `GET /api/companies/[companyKey]/kpi/result` 추가
+- [x] `GET /api/companies/[companyKey]/kpi/result/[moduleKey]` 추가
+- [x] `src/lib/server/kpi/kpi.test.ts`로 테스트 이동
+- [x] 모듈별 result API 분리
+
+Phase 6 저장 경로 메모:
+
+- 현재 `result asset` 저장은 `data/validation/{company_key}/{module}/` 기준을 유지한다
+- 여기서 `validation`은 Phase 7만 뜻하는 폴더가 아니라,
+  정규화 이후 `result asset -> validation -> payload -> builder` 결과가 누적되는 운영 루트로 해석한다
+- 원본 프로젝트 저장 구조와 현재 백엔드 설계 문서도 이 기준과 맞다
+
+현재 해석:
+
+- `Phase 6`은 완료다
+- `crm`, `sandbox`, `territory`, `prescription`, `radar` result asset 생성이 실제로 동작한다
+- 모듈별 result API 분리까지 끝났다
+
+### Phase 6-1. 서버 구조 리팩토링 계획
+
+목적:
+
+- `src/lib/server` 아래 파일이 한곳에 몰리지 않게 정리한다
+- 특히 `kpi.ts`처럼 커지는 파일을 모듈별로 나눠서 이후 Phase 7 ~ 10 구현을 안전하게 이어간다
+
+공식 분리 기준:
+
+- 내부 엔진 모듈 `4개`
+  - `intake`
+  - `kpi`
+  - `validation`
+  - `builder`
+- 운영/결과 모듈 `5개`
+  - `crm`
+  - `sandbox`
+  - `territory`
+  - `prescription`
+  - `radar`
+
+권장 구조:
+
+- `src/lib/server/shared/*`
+- `src/lib/server/intake/*`
+- `src/lib/server/normalization/*`
+- `src/lib/server/kpi/*`
+- `src/lib/server/crm/*`
+- `src/lib/server/sandbox/*`
+- `src/lib/server/territory/*`
+- `src/lib/server/prescription/*`
+- `src/lib/server/validation/*`
+- `src/lib/server/radar/*`
+- `src/lib/server/builder/*`
+
+파일 책임 규칙:
+
+- `run.ts`
+  - 실행 시작점만 담당
+- `engine.ts`
+  - 실제 계산만 담당
+- `result-asset.ts`
+  - 계산 결과를 공식 JSON 구조로 조립
+- `types.ts`
+  - 타입만 관리
+- `*.test.ts`
+  - 모듈별 테스트
+
+이번 리팩토링의 실제 첫 적용 범위:
+
+1. `kpi.ts`를 아래처럼 쪼갠다
+- `src/lib/server/kpi/run.ts`
+- `src/lib/server/kpi/types.ts`
+- `src/lib/server/kpi/shared.ts`
+- `src/lib/server/kpi/crm.ts`
+- `src/lib/server/kpi/sandbox.ts`
+
+2. 테스트도 단계명 기준에서 모듈 기준으로 바꾼다
+- `src/lib/server/phase6.test.ts` -> `src/lib/server/kpi/kpi.test.ts`
+
+3. 이후 Phase 6 나머지 구현도 같은 기준으로 이어간다
+- `prescription`
+- `territory`
+- `validation`
+- `builder`
+
+리팩토링 진행 메모:
+
+- [x] `src/lib/shared/mock-data.ts`
+- [x] `src/lib/shared/placeholder.ts`
+- [x] `src/lib/shared/source-registry.ts`
+- [x] `src/lib/server/shared/source-storage.ts`
+- [x] `src/lib/server/shared/tabular-file.ts`
+- [x] `src/lib/server/intake/analyze.ts`
+- [x] `src/lib/server/intake/registry.ts`
+- [x] `src/lib/server/intake/monthly-merge.ts`
+- [x] `src/lib/server/intake/schema.ts`
+- [x] `src/lib/server/normalization/run.ts`
+- [x] `src/lib/server/intake/intake-normalization.test.ts`
+- [x] 기존 경로는 얇은 연결 파일만 남겨서 현재 import가 바로 깨지지 않게 유지
+
+### [x] Phase 7. validation 구현
 
 구현 시 먼저 볼 설계 문서:
 
@@ -1083,6 +1224,8 @@ Phase 5-1 후속 운영 메모:
   - 원본 프로젝트 validation layer 조사 요약
 - `docs/summary/original_project_result_asset_payload_artifact_research_20260331.md`
   - validation 입력/출력과 result asset 연결 요약
+- `docs/summary/phase6_kpi_engine_and_result_asset_research_20260331.md`
+  - validation이 읽을 result asset 기준 정리
 
 목적:
 
@@ -1101,6 +1244,44 @@ Phase 5-1 후속 운영 메모:
 
 - WARN/FAIL 이유와 근거가 실제 validation 결과에서 옴
 
+현재 진행 메모:
+
+- [x] `src/lib/server/validation/run.ts` 추가
+- [x] `src/lib/server/validation/types.ts` 추가
+- [x] 모듈별 validation summary 생성
+  - `crm_validation_summary.json`
+  - `sandbox_validation_summary.json`
+  - `prescription_validation_summary.json`
+  - `territory_validation_summary.json`
+  - `radar_validation_summary.json`
+- [x] 전체 validation summary 생성
+  - `data/validation/{company_key}/_meta/latest_validation_summary.json`
+- [x] `POST /api/companies/[companyKey]/validation/run` 추가
+- [x] `GET /api/companies/[companyKey]/validation/summary` 추가
+- [x] `src/lib/server/validation/validation.test.ts` 추가
+- [x] `GET /api/companies/[companyKey]/validation/summary/[moduleKey]` 추가
+- [x] 모듈별 summary 조회 API 분리
+- [x] `evidence` 목록 구조 보강
+- [x] `latest_pipeline_summary.json` 저장 연결
+- [x] `runs/{run_id}` 구조 저장 연결
+- [x] `GET /api/companies/[companyKey]/runs/[runId]/summary` 추가
+- [x] `GET /api/companies/[companyKey]/runs/[runId]/artifacts` 추가
+- [x] `GET /api/companies/[companyKey]/runs/[runId]/report-context` 추가
+- [x] `report_context.full.json`, `report_context.prompt.json` 생성
+- [x] `execution_analysis.md` 생성
+- [x] `GET /api/companies/[companyKey]/runs` 추가
+- [x] run list/history API
+- [x] builder 전달용 linked artifacts 확장
+- [x] `src/lib/server/validation/validation-3companies.test.ts` 추가
+- [x] `company_000002`, `daon_pharma`, `monthly_merge_pharma` 3개 회사 validation 실검증
+
+현재 해석:
+
+- `Phase 7`은 최소 구현 기준으로 완료다
+- 3개 회사 공통 결과는 `CRM / Sandbox / Prescription` 통과, `Territory` 실패, 전체 `WARN`이다
+- 이 결과는 현재 버그라기보다 로우 생성기 기반 테스트 데이터라 동선 최적화 재료가 약해서 나온 정상 결과로 본다
+- 다음 시작점은 `Phase 8. payload 조립 구현`이다
+
 ### [ ] Phase 8. payload 조립 구현
 
 구현 시 먼저 볼 설계 문서:
@@ -1117,6 +1298,8 @@ Phase 5-1 후속 운영 메모:
   - result asset / payload / artifact 조사 요약
 - `docs/summary/original_project_builder_operation_research_20260331.md`
   - builder 입력 계약과 템플릿 연결 조사 요약
+- `docs/summary/phase6_kpi_engine_and_result_asset_research_20260331.md`
+  - report template가 실제로 기대하는 필드 정리
 
 목적:
 
@@ -1150,6 +1333,13 @@ Phase 5-1 후속 운영 메모:
   - 원본 프로젝트 builder 운영 조사 요약
 - `docs/summary/original_project_result_asset_payload_artifact_research_20260331.md`
   - builder 산출물 / artifact 구조 요약
+- `workers/templates/reports/`
+  - 현재 `sales_os` 템플릿 실제 경로
+  - `workers/templates/reports/crm_analysis_template.html`
+  - `workers/templates/reports/sandbox_report_template.html`
+  - `workers/templates/reports/territory_optimizer_template.html`
+  - `workers/templates/reports/prescription_flow_template.html`
+  - `workers/templates/reports/radar_report_template.html`
 
 목적:
 
@@ -1183,6 +1373,8 @@ Phase 5-1 후속 운영 메모:
   - worker와 validation 연결 요약
 - `docs/summary/original_project_builder_operation_research_20260331.md`
   - worker와 builder 연결 요약
+- `docs/summary/phase6_kpi_engine_and_result_asset_research_20260331.md`
+  - worker 실행 순서 참고
 
 목적:
 

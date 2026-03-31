@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { runNormalization } from "@/lib/server/normalization";
+import { runNormalization } from "@/lib/server/normalization/run";
 
 export const runtime = "nodejs";
 

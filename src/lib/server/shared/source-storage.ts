@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
-import { SOURCE_DEFINITIONS, SourceDefinition, SourceKey, getSourceDefinition } from "@/lib/source-registry";
+import { SOURCE_DEFINITIONS, SourceDefinition, SourceKey, getSourceDefinition } from "@/lib/shared/source-registry";
 
 const DATA_ROOT = path.join(process.cwd(), "data", "company_source");
 const COMPANY_KEY_PATTERN = /^[a-z0-9_]+$/;

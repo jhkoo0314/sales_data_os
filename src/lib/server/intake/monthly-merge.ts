@@ -3,9 +3,9 @@ import path from "node:path";
 
 import * as XLSX from "xlsx";
 
-import { getSourceDefinition, type SourceKey } from "@/lib/source-registry";
-import { assertValidCompanyKey, normalizeMonthToken } from "@/lib/server/source-storage";
-import { parseTabularFile } from "@/lib/server/tabular-file";
+import { getSourceDefinition, type SourceKey } from "@/lib/shared/source-registry";
+import { assertValidCompanyKey, normalizeMonthToken } from "@/lib/server/shared/source-storage";
+import { parseTabularFile } from "@/lib/server/shared/tabular-file";
 
 const COMPANY_SOURCE_ROOT = path.join(process.cwd(), "data", "company_source");
 const MERGEABLE_SOURCE_KEYS: SourceKey[] = ["crm_activity", "sales", "target", "prescription"];

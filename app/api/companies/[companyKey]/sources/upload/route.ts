@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { saveGeneralSourceUpload } from "@/lib/server/source-storage";
+import { saveGeneralSourceUpload } from "@/lib/server/shared/source-storage";
 
 export const runtime = "nodejs";
 

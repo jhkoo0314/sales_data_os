@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { saveIntakeConfirmation } from "@/lib/server/intake-analysis";
+import { saveIntakeConfirmation } from "@/lib/server/intake/analyze";
 
 export const runtime = "nodejs";
 

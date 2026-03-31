@@ -1,4 +1,4 @@
-import { agentEvidence, agentHistory, quickPrompts } from "@/lib/mock-data";
+import { agentEvidence, agentHistory, quickPrompts } from "@/lib/shared/mock-data";
 
 export default function AgentPage() {
   return (

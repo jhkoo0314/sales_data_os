@@ -1,4 +1,4 @@
-import type { SourceKey } from "@/lib/source-registry";
+import type { SourceKey } from "@/lib/shared/source-registry";
 
 export type SourceModuleKey = "crm" | "sandbox" | "prescription";
 

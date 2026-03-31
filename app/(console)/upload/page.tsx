@@ -1,5 +1,5 @@
 import { ArrowRight, CalendarDays, FolderOpen, Pill, Target, Users } from "lucide-react";
-import { monthlyUploads, savedFiles } from "@/lib/mock-data";
+import { monthlyUploads, savedFiles } from "@/lib/shared/mock-data";
 
 const sourceCards = [
   {

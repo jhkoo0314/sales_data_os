@@ -1,17 +1,17 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
-import { SOURCE_DEFINITIONS, SourceKey } from "@/lib/source-registry";
+import { SOURCE_DEFINITIONS, SourceKey } from "@/lib/shared/source-registry";
 import {
   findMappedHeaderFromRegistry,
   readColumnMappingRegistry,
   type SourceMappingRegistryEntry,
   upsertSourceMappingRegistry
-} from "@/lib/server/mapping-registry";
-import { mergeMonthlyRawSources } from "@/lib/server/monthly-merge";
-import { COLUMN_ALIASES, PREFERRED_SHEET_NAMES, REQUIRED_COLUMNS } from "@/lib/server/source-schema";
-import { assertValidCompanyKey, normalizeMonthToken } from "@/lib/server/source-storage";
-import { isSupportedTabularFile, parseTabularFile, readTabularHeaders } from "@/lib/server/tabular-file";
+} from "@/lib/server/intake/registry";
+import { mergeMonthlyRawSources } from "@/lib/server/intake/monthly-merge";
+import { COLUMN_ALIASES, PREFERRED_SHEET_NAMES, REQUIRED_COLUMNS } from "@/lib/server/intake/schema";
+import { assertValidCompanyKey, normalizeMonthToken } from "@/lib/server/shared/source-storage";
+import { isSupportedTabularFile, parseTabularFile, readTabularHeaders } from "@/lib/server/shared/tabular-file";
 
 const COMPANY_SOURCE_ROOT = path.join(process.cwd(), "data", "company_source");
 

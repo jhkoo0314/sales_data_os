@@ -1,4 +1,4 @@
-import { runContext } from "@/lib/mock-data";
+import { runContext } from "@/lib/shared/mock-data";
 
 export function HeaderContext() {
   return (

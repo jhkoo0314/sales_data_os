@@ -29,8 +29,6 @@
 
 아직 남은 Phase:
 
-- `Phase 6. KPI 계산과 Result Asset Base 구현`
-- `Phase 7. validation 구현`
 - `Phase 8. payload 조립 구현`
 - `Phase 9. Builder 구현`
 - `Phase 10. Worker Runtime 구현`
@@ -51,8 +49,8 @@
 
 핵심 파일:
 
-- `src/lib/source-registry.ts`
-- `src/lib/server/source-storage.ts`
+- `src/lib/shared/source-registry.ts`
+- `src/lib/server/shared/source-storage.ts`
 - `app/api/companies/[companyKey]/sources/route.ts`
 - `app/api/companies/[companyKey]/sources/upload/route.ts`
 - `app/api/companies/[companyKey]/sources/monthly-upload/route.ts`
@@ -76,8 +74,8 @@
 
 핵심 파일:
 
-- `src/lib/server/intake-analysis.ts`
-- `src/lib/server/source-schema.ts`
+- `src/lib/server/intake/analyze.ts`
+- `src/lib/server/intake/schema.ts`
 - `app/api/companies/[companyKey]/intake/analyze/route.ts`
 - `app/api/companies/[companyKey]/intake/result/route.ts`
 - `app/api/companies/[companyKey]/intake/confirm/route.ts`
@@ -117,9 +115,9 @@
 
 핵심 파일:
 
-- `src/lib/server/normalization.ts`
-- `src/lib/server/tabular-file.ts`
-- `src/lib/server/source-schema.ts`
+- `src/lib/server/normalization/run.ts`
+- `src/lib/server/shared/tabular-file.ts`
+- `src/lib/server/intake/schema.ts`
 - `app/api/companies/[companyKey]/normalization/run/route.ts`
 - `app/api/companies/[companyKey]/normalization/result/route.ts`
 
@@ -266,10 +264,10 @@
 
 핵심 파일:
 
-- `src/lib/server/monthly-merge.ts`
-- `src/lib/server/intake-analysis.ts`
-- `src/lib/server/normalization.ts`
-- `src/lib/server/source-storage.ts`
+- `src/lib/server/intake/monthly-merge.ts`
+- `src/lib/server/intake/analyze.ts`
+- `src/lib/server/normalization/run.ts`
+- `src/lib/server/shared/source-storage.ts`
 
 ## 4. 현재 고정된 구현 원칙
 
@@ -284,12 +282,191 @@
 
 바로 다음 작업:
 
-1. `Phase 6. KPI 계산과 Result Asset Base 구현`
-2. `Phase 7. validation 구현`
-3. `Phase 8. payload 조립 구현`
-4. `Phase 9. Builder 구현`
-5. `Phase 10. Worker Runtime 구현`
-6. `Phase 11 ~ Phase 14` 프론트 연결
+1. `Phase 8. payload 조립 구현`
+2. `Phase 9. Builder 구현`
+3. `Phase 10. Worker Runtime 구현`
+4. `Phase 11 ~ Phase 14` 프론트 연결
+
+`Phase 6 ~ 10` 문서 기준 정리:
+
+1. `Phase 6`
+- 먼저 `CRM -> Sandbox` 순서로 구현
+- 참고 문서:
+  - `docs/task.md`
+  - `docs/summary/phase6_kpi_engine_and_result_asset_research_20260331.md`
+  - `docs/summary/kpi_module_research_20260331.md`
+
+2. `Phase 7`
+- `result asset`를 읽고 `WARN / FAIL / handoff` 이유를 만드는 단계
+- 참고 문서:
+  - `docs/task.md`
+  - `docs/summary/original_project_validation_layer_research_20260331.md`
+
+3. `Phase 8`
+- Builder가 읽을 `payload`를 만드는 단계
+- 참고 문서:
+  - `docs/task.md`
+  - `docs/summary/original_project_result_asset_payload_artifact_research_20260331.md`
+
+4. `Phase 9`
+- `workers/templates/reports/` 템플릿에 실제 payload를 주입하는 단계
+- 참고 경로:
+  - `workers/templates/reports/crm_analysis_template.html`
+  - `workers/templates/reports/sandbox_report_template.html`
+  - `workers/templates/reports/territory_optimizer_template.html`
+  - `workers/templates/reports/prescription_flow_template.html`
+  - `workers/templates/reports/radar_report_template.html`
+
+5. `Phase 10`
+- worker가 `intake -> normalization -> kpi -> validation -> payload -> builder` 순서를 한 run으로 묶는 단계
+- 참고 문서:
+  - `docs/task.md`
+  - `docs/summary/original_project_worker_runtime_research_20260331.md`
+
+`2026-03-31` Phase 6 완료 상태:
+
+- `src/lib/server/kpi.ts`를 추가했다
+- 현재는 `CRM KPI -> crm_result_asset.json`, `Sandbox KPI 6 -> sandbox_result_asset.json`까지 생성된다
+- 저장 경로는 `data/validation/{company_key}/crm/`, `data/validation/{company_key}/sandbox/` 기준으로 맞췄다
+- API를 추가했다
+  - `POST /api/companies/{companyKey}/kpi/run`
+  - `GET /api/companies/{companyKey}/kpi/result`
+- `runKpi`는 `intake -> normalization -> kpi` 흐름이 이어지도록 연결했다
+- 테스트를 추가했다
+  - `src/lib/server/kpi/kpi.test.ts`
+  - clean 샘플 회사 / `company_000002` 기준 통과 확인
+- 현재 해석:
+  - `Phase 6`은 완료다
+  - `CRM / Sandbox / Territory / Prescription / RADAR`까지 result asset 생성이 실제로 연결됐다
+  - 모듈별 result 조회 API도 분리됐다
+
+`2026-03-31` Phase 6 구조 리팩토링 시작:
+
+- `src/lib/server/kpi.ts`를 계속 키우지 않고 역할별 파일로 나누기 시작했다
+- 현재 분리한 파일:
+  - `src/lib/server/kpi/run.ts`
+  - `src/lib/server/kpi/types.ts`
+  - `src/lib/server/kpi/shared.ts`
+  - `src/lib/server/kpi/crm.ts`
+  - `src/lib/server/kpi/sandbox.ts`
+- 의미:
+  - `run.ts`는 실행 시작점
+  - `shared.ts`는 공통 읽기/쓰기와 숫자/날짜 유틸
+  - `crm.ts`, `sandbox.ts`는 모듈별 계산
+- 테스트도 단계명 기준 파일에서 모듈 기준 파일로 옮겼다
+  - `src/lib/server/phase6.test.ts` -> `src/lib/server/kpi/kpi.test.ts`
+
+`2026-03-31` 공통/입력/정규화 파일 구조도 정리:
+
+- `src/lib/shared/`
+  - `mock-data.ts`
+  - `placeholder.ts`
+  - `source-registry.ts`
+- `src/lib/server/shared/`
+  - `source-storage.ts`
+  - `tabular-file.ts`
+- `src/lib/server/intake/`
+  - `analyze.ts`
+  - `registry.ts`
+  - `monthly-merge.ts`
+  - `schema.ts`
+  - `intake-normalization.test.ts`
+- `src/lib/server/normalization/`
+  - `run.ts`
+- 기존 경로는 연결 파일로 남겨서 현재 API와 화면 import는 바로 유지되게 했다
+- 검증:
+  - `pnpm typecheck` 통과
+  - `pnpm test` 통과
+
+`2026-03-31` Phase 7 완료 상태:
+
+- `src/lib/server/validation/run.ts`를 추가했다
+- `validation`은 이제 각 모듈 result asset를 읽어
+  - `quality_status`
+  - `quality_score`
+  - `reasoning_note`
+  - `next_modules`
+  - `gate_details`
+  를 만든다
+- 현재 저장되는 파일:
+  - `data/validation/{company_key}/crm/crm_validation_summary.json`
+  - `data/validation/{company_key}/sandbox/sandbox_validation_summary.json`
+  - `data/validation/{company_key}/prescription/prescription_validation_summary.json`
+  - `data/validation/{company_key}/territory/territory_validation_summary.json`
+  - `data/validation/{company_key}/radar/radar_validation_summary.json`
+  - `data/validation/{company_key}/_meta/latest_validation_summary.json`
+  - `data/validation/{company_key}/_meta/latest_pipeline_summary.json`
+  - `data/validation/{company_key}/runs/{run_id}/run_meta.json`
+  - `data/validation/{company_key}/runs/{run_id}/pipeline_summary.json`
+  - `data/validation/{company_key}/runs/{run_id}/artifacts.index.json`
+  - `data/validation/{company_key}/runs/{run_id}/report_context.full.json`
+  - `data/validation/{company_key}/runs/{run_id}/report_context.prompt.json`
+  - `data/validation/{company_key}/runs/{run_id}/execution_analysis.md`
+- API를 추가했다
+  - `POST /api/companies/{companyKey}/validation/run`
+  - `GET /api/companies/{companyKey}/validation/summary`
+  - `GET /api/companies/{companyKey}/validation/summary/{moduleKey}`
+  - `GET /api/companies/{companyKey}/runs`
+  - `GET /api/companies/{companyKey}/runs/{runId}/summary`
+  - `GET /api/companies/{companyKey}/runs/{runId}/artifacts`
+  - `GET /api/companies/{companyKey}/runs/{runId}/report-context`
+- `validation summary` 안에는 이제 사람 읽는 근거 목록 `evidence`도 같이 저장된다
+- 현재 해석:
+  - `Phase 7`은 최소 구현 기준으로 완료다
+  - 모듈별 summary 조회, evidence, run 이력, linked artifacts까지 동작한다
+  - `runs/{run_id}` 기준 pipeline bundle과 설명 문맥 파일도 함께 생성된다
+  - 다음 시작점은 `Phase 8 payload 조립`이다
+- 검증:
+  - `pnpm typecheck` 통과
+  - `pnpm test` 통과
+
+`2026-03-31` Phase 6 추가 구현:
+
+- `src/lib/server/kpi/prescription.ts`를 추가했다
+- `src/lib/server/kpi/territory.ts`를 추가했다
+- `runKpi`가 이제 아래 5개 result asset를 생성한다
+  - `crm_result_asset.json`
+  - `sandbox_result_asset.json`
+  - `territory_result_asset.json`
+  - `prescription_result_asset.json`
+  - `radar_result_asset.json`
+- 이번 버전의 의미:
+  - `Prescription`은 흐름/누락/영역별 요약을 담는 최소 자산
+  - `Territory`는 커버리지/병원목록/담당자별 요약을 담는 최소 자산
+- `RADAR`는 KPI를 다시 계산하지 않고, 이미 만든 result asset 위에서 우선 신호와 의사결정 옵션 상자를 만든다
+- 테스트도 5개 모듈 파일 생성 기준으로 갱신했다
+- 모듈별 result 조회 API도 분리했다
+  - `GET /api/companies/{companyKey}/kpi/result/{moduleKey}`
+  - 지원 모듈: `crm`, `sandbox`, `territory`, `prescription`, `radar`
+- 저장 경로 해석 메모:
+  - 현재 `result asset`는 `data/validation/{company_key}/{module}/` 아래에 저장한다
+  - 이 경로의 `validation`은 “validation 완료본만 두는 폴더”가 아니라
+    “정규화 이후 result asset, validation, payload, builder 산출물이 모이는 운영 결과 루트”로 읽는 것이 맞다
+  - 원본 프로젝트와 현재 설계 문서도 이 해석에 맞는다
+- 검증:
+  - `pnpm typecheck` 통과
+  - `pnpm test` 통과
+
+`2026-03-31` Validation 3개 회사 실검증:
+
+- 대상 회사:
+  - `company_000002`
+  - `daon_pharma`
+  - `monthly_merge_pharma`
+- 공통 결과:
+  - `CRM`: `PASS`
+  - `Sandbox`: `PASS`
+  - `Prescription`: `PASS`
+  - `Territory`: `FAIL`
+  - `RADAR`: `APPROVED`
+  - 전체 상태: `WARN`
+- 현재 해석:
+  - 이 결과는 현재 버그라기보다,
+    로우 생성기 기반 테스트 데이터라 `Territory`가 필요로 하는 동선/권역 재료가 약해서 나온 정상 결과로 본다
+  - 즉 `Territory FAIL`은 계산기 오류보다 데이터 성격 반영에 가깝다
+- 테스트:
+  - `src/lib/server/validation/validation-3companies.test.ts`
+  - `pnpm test` 기준 전체 `18개 테스트` 통과
 
 ## 5-1. 후속 메모
 

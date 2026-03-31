@@ -8,7 +8,7 @@ import {
   Plus,
   Users
 } from "lucide-react";
-import { reports, runContext } from "@/lib/mock-data";
+import { reports, runContext } from "@/lib/shared/mock-data";
 
 const quickActionCards = [
   {

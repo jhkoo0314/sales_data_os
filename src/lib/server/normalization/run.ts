@@ -3,16 +3,16 @@ import path from "node:path";
 
 import * as XLSX from "xlsx";
 
-import { SOURCE_DEFINITIONS, type SourceKey } from "@/lib/source-registry";
-import { readLatestIntakeResult } from "@/lib/server/intake-analysis";
+import { SOURCE_DEFINITIONS, type SourceKey } from "@/lib/shared/source-registry";
+import { readLatestIntakeResult } from "@/lib/server/intake/analyze";
 import {
   findMappedHeaderFromRegistry,
   readColumnMappingRegistry,
   type SourceMappingRegistryEntry,
   upsertSourceMappingRegistry
-} from "@/lib/server/mapping-registry";
-import { mergeMonthlyRawSources } from "@/lib/server/monthly-merge";
-import { assertValidCompanyKey, normalizeMonthToken } from "@/lib/server/source-storage";
+} from "@/lib/server/intake/registry";
+import { mergeMonthlyRawSources } from "@/lib/server/intake/monthly-merge";
+import { assertValidCompanyKey, normalizeMonthToken } from "@/lib/server/shared/source-storage";
 import {
   COLUMN_ALIASES,
   PREFERRED_SHEET_NAMES,
@@ -20,8 +20,8 @@ import {
   SOURCE_TO_MODULE,
   STANDARDIZED_FILENAMES,
   type SourceModuleKey
-} from "@/lib/server/source-schema";
-import { isSpreadsheetFile, isSupportedTabularFile, parseTabularFile } from "@/lib/server/tabular-file";
+} from "@/lib/server/intake/schema";
+import { isSpreadsheetFile, isSupportedTabularFile, parseTabularFile } from "@/lib/server/shared/tabular-file";
 
 const COMPANY_SOURCE_ROOT = path.join(process.cwd(), "data", "company_source");
 const STANDARDIZED_ROOT = path.join(process.cwd(), "data", "standardized");

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { readLatestIntakeConfirmation, readLatestIntakeResult } from "@/lib/server/intake-analysis";
+import { readLatestIntakeConfirmation, readLatestIntakeResult } from "@/lib/server/intake/analyze";
 
 export const runtime = "nodejs";
 

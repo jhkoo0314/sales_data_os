@@ -26,13 +26,19 @@
 - 핵심 페이지 기본 뼈대 구현
 - `Phase 1 ~ Phase 5` 구현 반영
 - `Phase 5-1. 지저분한 raw 대응 보강` 완료
+- `Phase 6. KPI 계산과 Result Asset Base 구현` 완료
+- `Phase 7. validation 구현` 완료
 - 백엔드 로직 설계 문서 완료
 - Python/worker 의존성 파일 정리
 - 보고서 템플릿 검토 및 패키지 기준 정리
 
 다음 구현 우선순위:
 
-- `Phase 6. KPI -> validation -> payload -> builder` 백엔드 파일 구현
+- `Phase 8 ~ Phase 10` 백엔드 구현
+- 구현 순서:
+  - `Phase 8` payload
+  - `Phase 9` builder
+  - `Phase 10` worker runtime
 - Supabase 실제 연결
 - Python worker 실제 구현
 - 프론트엔드와 실제 엔진 연결
@@ -46,6 +52,8 @@
 - 디자인 예시 HTML: [`docs/ui/design_guide`](C:\sales_os\docs\ui\design_guide)
 - 보고서 템플릿 의존성: [`docs/12_report_template_dependencies.md`](C:\sales_os\docs\12_report_template_dependencies.md)
 - 백엔드 로직 요청서: [`docs/13_backend_logic_request_prompt.md`](C:\sales_os\docs\13_backend_logic_request_prompt.md)
+- KPI / result asset 조사: [`docs/summary/phase6_kpi_engine_and_result_asset_research_20260331.md`](C:\sales_os\docs\summary\phase6_kpi_engine_and_result_asset_research_20260331.md)
+- validation / payload 조사: [`docs/summary/original_project_result_asset_payload_artifact_research_20260331.md`](C:\sales_os\docs\summary\original_project_result_asset_payload_artifact_research_20260331.md)
 
 ## 기술 스택
 
@@ -79,10 +87,17 @@
 
 ## 백엔드 우선순위
 
-현재 기준으로는 기본 화면과 설계 문서가 먼저 정리된 상태이므로,
-다음 핵심 작업은 아래 백엔드 공식 흐름을 실제 파일로 구현하는 것이다.
+현재 기준으로는 `Phase 7`까지의 백엔드 핵심 골격이 구현된 상태이므로,
+다음 핵심 작업은 아래 공식 흐름의 뒤쪽 단계를 마무리하는 것이다.
 
 `입력 -> 검증 -> 정규화 -> KPI 계산 -> validation -> result asset / payload -> builder`
+
+현재 해석:
+
+- `intake -> normalization -> kpi -> validation`은 실제 파일과 API로 동작한다
+- `result asset`는 `data/validation/{company_key}/{module}/` 아래에 생성된다
+- `validation`은 `runs/{run_id}` 기준 요약, 근거, 문맥 파일까지 저장한다
+- 다음 구현 시작점은 `Phase 8 payload`다
 
 중요한 원칙:
 

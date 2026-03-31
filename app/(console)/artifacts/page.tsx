@@ -1,5 +1,5 @@
 import { Copy, Download, Info, Search } from "lucide-react";
-import { artifacts } from "@/lib/mock-data";
+import { artifacts } from "@/lib/shared/mock-data";
 
 const artifactRows = [
   {

@@ -4,10 +4,10 @@ import path from "node:path";
 import * as XLSX from "xlsx";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { analyzeIntake } from "@/lib/server/intake-analysis";
-import { mergeMonthlyRawSources } from "@/lib/server/monthly-merge";
-import { runNormalization } from "@/lib/server/normalization";
-import { parseTabularFile } from "@/lib/server/tabular-file";
+import { analyzeIntake } from "@/lib/server/intake/analyze";
+import { mergeMonthlyRawSources } from "@/lib/server/intake/monthly-merge";
+import { runNormalization } from "@/lib/server/normalization/run";
+import { parseTabularFile } from "@/lib/server/shared/tabular-file";
 
 const COMPANY_SOURCE_ROOT = path.join(process.cwd(), "data", "company_source");
 const STANDARDIZED_ROOT = path.join(process.cwd(), "data", "standardized");

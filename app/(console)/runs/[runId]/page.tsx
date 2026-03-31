@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { runHistory, runStepDetails } from "@/lib/mock-data";
+import { runHistory, runStepDetails } from "@/lib/shared/mock-data";
 
 type RunDetailPageProps = {
   params: Promise<{ runId: string }>;

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { listCompanySources } from "@/lib/server/shared/source-storage";
+import { readLatestKpiResult } from "@/lib/server/kpi";
 
 export const runtime = "nodejs";
 
@@ -10,10 +10,15 @@ export async function GET(
 ) {
   try {
     const { companyKey } = await context.params;
-    const result = await listCompanySources(companyKey);
+    const result = await readLatestKpiResult(companyKey);
+
+    if (!result) {
+      return NextResponse.json({ error: "No KPI result found." }, { status: 404 });
+    }
+
     return NextResponse.json(result);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to load sources.";
+    const message = error instanceof Error ? error.message : "Failed to load KPI result.";
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }

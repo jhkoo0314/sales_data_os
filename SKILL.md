@@ -155,9 +155,45 @@
   - 월별 raw 병합 후 공식 raw 재생성
   - intake analyze 전 병합 자동 수행
   - normalization run 전 병합 자동 수행
-- 다음 우선순위: `Phase 6 ~ Phase 10` 백엔드 구현
+- 다음 우선순위: `Phase 8 ~ Phase 10` 백엔드 구현
 - 그 다음: `Phase 11 ~ Phase 14` 프론트 연결
 - 이후: `Phase 15 ~ Phase 18` 확장 및 안정화
+
+`Phase 8 ~ 10` 참고 문서 우선순위:
+
+1. `docs/task.md`
+2. `docs/current_implementation_status.md`
+3. `docs/summary/phase6_kpi_engine_and_result_asset_research_20260331.md`
+4. `docs/summary/original_project_result_asset_payload_artifact_research_20260331.md`
+5. `workers/templates/reports/`
+
+현재 구현 해석:
+
+- `Phase 6`은 완료다
+  - `crm`, `sandbox`, `territory`, `prescription`, `radar` result asset 생성
+  - 모듈별 KPI result API 분리 완료
+- `Phase 7`도 완료다
+  - validation summary
+  - evidence
+  - `runs/{run_id}` 저장
+  - `report_context`, `execution_analysis` 생성
+- 현재 다음 시작점은 `Phase 8 payload`다
+
+최근 검증 메모:
+
+- `company_000002`
+- `daon_pharma`
+- `monthly_merge_pharma`
+
+위 3개 회사는 validation까지 실제 검증했다.
+현재 공통 해석은 아래와 같다.
+
+- `CRM / Sandbox / Prescription`은 통과
+- `Territory`는 FAIL
+- 전체 상태는 `WARN`
+
+이 결과는 현재 버그라기보다,
+로우 생성기 기반 테스트 데이터라 동선 최적화 재료가 약해서 나온 정상 결과로 본다.
 
 현재 구현 진행사항 상세는 아래 문서만 기준으로 본다.
 
