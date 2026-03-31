@@ -4,7 +4,7 @@ import { readLatestValidationSummary, runValidation } from "@/lib/server/validat
 
 const COMPANIES = ["company_000002", "daon_pharma", "monthly_merge_pharma"] as const;
 
-describe("validation run for three companies", () => {
+describe.sequential("validation run for three companies", () => {
   for (const companyKey of COMPANIES) {
     it(`runs validation for ${companyKey}`, async () => {
       const result = await runValidation({ companyKey, executionMode: "integrated" });

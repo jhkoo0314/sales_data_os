@@ -24,7 +24,8 @@ export async function runKpi(input: {
 }): Promise<KpiRunResult> {
   const companyKey = input.companyKey;
   assertValidCompanyKey(companyKey);
-  let intake = await readLatestIntakeResult(companyKey);
+  const shouldRefreshUpstream = Boolean(input.executionMode);
+  let intake = shouldRefreshUpstream ? null : await readLatestIntakeResult(companyKey);
   if (!intake) {
     intake = await analyzeIntake({
       companyKey,
@@ -35,7 +36,7 @@ export async function runKpi(input: {
     throw new Error("KPI 계산 전에 intake가 다음 단계 전달 가능 상태여야 합니다.");
   }
 
-  let normalization = await readLatestNormalizationResult(companyKey);
+  let normalization = shouldRefreshUpstream ? null : await readLatestNormalizationResult(companyKey);
   if (!normalization) {
     normalization = await runNormalization({ companyKey, executionMode: input.executionMode ?? null });
   }

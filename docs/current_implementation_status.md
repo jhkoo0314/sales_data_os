@@ -29,10 +29,12 @@
 
 아직 남은 Phase:
 
-- `Phase 8. payload 조립 구현`
-- `Phase 9. Builder 구현`
 - `Phase 10. Worker Runtime 구현`
 - `Phase 11 ~ Phase 18`
+
+현재 다음 시작점:
+
+- `Phase 10. Worker Runtime 구현`
 
 ## 3. 현재 구현된 백엔드 범위
 
@@ -282,10 +284,9 @@
 
 바로 다음 작업:
 
-1. `Phase 8. payload 조립 구현`
-2. `Phase 9. Builder 구현`
-3. `Phase 10. Worker Runtime 구현`
-4. `Phase 11 ~ Phase 14` 프론트 연결
+1. `Phase 10. Worker Runtime 구현`
+2. `Phase 11 ~ Phase 14` 프론트 연결
+3. `Phase 15 ~ Phase 18` 확장 및 안정화
 
 `Phase 6 ~ 10` 문서 기준 정리:
 
@@ -464,9 +465,108 @@
   - 이 결과는 현재 버그라기보다,
     로우 생성기 기반 테스트 데이터라 `Territory`가 필요로 하는 동선/권역 재료가 약해서 나온 정상 결과로 본다
   - 즉 `Territory FAIL`은 계산기 오류보다 데이터 성격 반영에 가깝다
+- 추가 메모:
+  - 위 평가는 `validation 단계 판정` 기준이다
+  - 이후 `daon_pharma` Builder 복원 작업으로 Territory 화면 주입 자체는 정상화됐다
+  - 즉 현재는 `validation FAIL`과 `Builder 화면 비정상`을 같은 문제로 보지 않는다
 - 테스트:
   - `src/lib/server/validation/validation-3companies.test.ts`
   - `pnpm test` 기준 전체 `18개 테스트` 통과
+
+`2026-03-31` Phase 8 완료 상태:
+
+- `src/lib/server/builder/run.ts`, `src/lib/server/builder/types.ts`를 추가했다
+- 목적은 `validation` 다음 단계에서 Builder가 raw나 KPI를 다시 계산하지 않고,
+  이미 승인된 `result asset + validation summary`를 화면용 payload로만 읽게 만드는 것이다
+- 현재 생성되는 대표 파일:
+  - `data/validation/{company_key}/crm/crm_builder_payload.json`
+  - `data/validation/{company_key}/sandbox/sandbox_builder_payload.json`
+  - `data/validation/{company_key}/territory/territory_builder_payload.json`
+  - `data/validation/{company_key}/prescription/prescription_builder_payload.json`
+  - `data/validation/{company_key}/radar/radar_builder_payload.json`
+  - `data/validation/{company_key}/builder/{module}_builder_input_standard.json`
+  - `data/validation/{company_key}/builder/latest_payload_result.json`
+  - `data/validation/{company_key}/builder/builder_payload_index.json`
+  - `data/validation/{company_key}/runs/{run_id}/builder_payload_index.json`
+- 추가한 API:
+  - `POST /api/companies/{companyKey}/payload/run`
+  - `GET /api/companies/{companyKey}/payload/result`
+  - `GET /api/companies/{companyKey}/payload/result/{moduleKey}`
+- run bundle 연결:
+  - `artifacts.index.json`에 `builder_payload`, `builder_input_standard`, `payload_index`가 추가된다
+  - `report_context.full.json`, `report_context.prompt.json`에도 payload 연결 정보가 함께 들어간다
+- 현재 해석:
+  - `Phase 8`은 완료다
+  - 이제 Builder는 다음 단계에서 모듈별 payload와 input standard를 바로 읽을 수 있다
+  - 다음 구현 초점은 `Phase 9`에서 이 payload를 실제 HTML 템플릿에 주입하는 일이다
+- 검증:
+  - `src/lib/server/builder/builder.test.ts` 추가
+  - `pnpm typecheck` 통과
+  - `pnpm test` 통과
+  - 전체 `19개 테스트` 통과
+
+`2026-03-31` Phase 9 완료 상태:
+
+- `src/lib/server/builder/render.ts`를 추가했다
+- 목적은 `Phase 8`에서 만든 payload를 실제 템플릿 HTML에 넣어
+  모듈별 preview 결과물과 Builder 표준 파일을 생성하는 것이다
+- 현재 생성되는 대표 파일:
+  - `data/validation/{company_key}/builder/crm_analysis_preview.html`
+  - `data/validation/{company_key}/builder/sandbox_report_preview.html`
+  - `data/validation/{company_key}/builder/territory_map_preview.html`
+  - `data/validation/{company_key}/builder/prescription_flow_preview.html`
+  - `data/validation/{company_key}/builder/radar_report_preview.html`
+  - `data/validation/{company_key}/builder/*_preview_input_standard.json`
+  - `data/validation/{company_key}/builder/*_preview_payload_standard.json`
+  - `data/validation/{company_key}/builder/*_preview_result_asset.json`
+  - `data/validation/{company_key}/builder/builder_validation_summary.json`
+  - `data/validation/{company_key}/builder/total_valid_preview.html`
+- 추가한 API:
+  - `POST /api/companies/{companyKey}/builder/render`
+  - `GET /api/companies/{companyKey}/builder/reports`
+  - `GET /api/companies/{companyKey}/builder/reports/{reportType}`
+  - `GET /api/companies/{companyKey}/builder/artifacts`
+- run bundle 연결:
+  - `runs/{run_id}/builder_reports_index.json` 생성
+  - `artifacts.index.json`에 `builder_html`, `builder_preview_result_asset`, `builder_reports_index`가 추가된다
+  - `report_context.full.json`, `report_context.prompt.json`에도 builder reports 연결 정보가 함께 들어간다
+- 현재 해석:
+  - `Phase 9`는 최소 버전 기준으로 완료다
+  - Builder는 이제 payload만 읽어 모듈별 preview HTML과 표준 결과 파일을 실제로 생성한다
+  - 다음 시작점은 `Phase 10 Worker Runtime 구현`이다
+- 검증:
+  - `pnpm typecheck` 통과
+  - `pnpm test` 통과
+  - 전체 `20개 테스트` 통과
+
+`2026-03-31` Phase 9 Territory/CRM 템플릿 복원 보강:
+
+- 템플릿 디자인 파일은 수정하지 않고,
+  현재 프로젝트 경로 기준 `result asset -> payload -> preview html` 주입 경로만 다시 맞췄다
+- `CRM`은 원본 payload 계약에 맞게 다시 조립했다
+  - 11대 지표
+  - scope 데이터
+  - 팀/담당자/기간 선택 구조
+  - lazy-load용 scope chunk 분리
+- `Territory`는 원본 방식에 가깝게 lazy-load 구조를 다시 만들었다
+  - 담당자별 catalog chunk
+  - 월별 month chunk
+  - 월/일 선택 구조
+  - 병원 마커 좌표
+  - 이동거리 / 반경 / 방문수 / 매출
+  - 병원별 목표금액 / attainment
+- `daon_pharma` 기준 Territory는 아래까지 실제 확인했다
+  - 월 선택 동작
+  - 일 선택 동작
+  - 병원 마커 표시
+  - 마커 클릭 시 `누적매출`, `누적목표`, `Attainment` 표시
+- `sandbox` 목표 집계도 함께 보정했다
+  - `standardized_target_records.json`의 `거래처코드`를 병원 ID로 읽도록 수정
+  - 이 수정으로 Territory 병원 popup의 목표금액/달성률도 정상화됐다
+- 현재 해석:
+  - `Phase 9`는 단순 preview 생성이 아니라
+    실제 템플릿 계약 복원과 lazy-load 주입 정상화까지 끝난 상태다
+  - `daon_pharma`는 Builder 화면 검증 기준 정상 상태로 본다
 
 ## 5-1. 후속 메모
 

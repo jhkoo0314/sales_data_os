@@ -28,16 +28,17 @@
 - `Phase 5-1. 지저분한 raw 대응 보강` 완료
 - `Phase 6. KPI 계산과 Result Asset Base 구현` 완료
 - `Phase 7. validation 구현` 완료
+- `Phase 8. payload 조립 구현` 완료
+- `Phase 9. Builder 구현` 완료
+- `Phase 9` 템플릿 계약 복원 및 Territory/CRM lazy-load 주입 정상화 완료
 - 백엔드 로직 설계 문서 완료
 - Python/worker 의존성 파일 정리
 - 보고서 템플릿 검토 및 패키지 기준 정리
 
 다음 구현 우선순위:
 
-- `Phase 8 ~ Phase 10` 백엔드 구현
+- `Phase 10` 백엔드 구현
 - 구현 순서:
-  - `Phase 8` payload
-  - `Phase 9` builder
   - `Phase 10` worker runtime
 - Supabase 실제 연결
 - Python worker 실제 구현
@@ -94,10 +95,12 @@
 
 현재 해석:
 
-- `intake -> normalization -> kpi -> validation`은 실제 파일과 API로 동작한다
+- `intake -> normalization -> kpi -> validation -> payload -> builder`는 실제 파일과 API로 동작한다
 - `result asset`는 `data/validation/{company_key}/{module}/` 아래에 생성된다
 - `validation`은 `runs/{run_id}` 기준 요약, 근거, 문맥 파일까지 저장한다
-- 다음 구현 시작점은 `Phase 8 payload`다
+- `builder`는 payload를 읽어 preview HTML과 표준 결과 파일을 실제로 생성한다
+- `daon_pharma` 기준으로 Territory Builder는 월/일 선택, 병원 마커, 목표금액, 달성률까지 재검증을 마쳤다
+- 다음 구현 시작점은 `Phase 10 worker runtime`이다
 
 중요한 원칙:
 

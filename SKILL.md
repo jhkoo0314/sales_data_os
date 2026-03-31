@@ -155,11 +155,11 @@
   - 월별 raw 병합 후 공식 raw 재생성
   - intake analyze 전 병합 자동 수행
   - normalization run 전 병합 자동 수행
-- 다음 우선순위: `Phase 8 ~ Phase 10` 백엔드 구현
+- 다음 우선순위: `Phase 10` 백엔드 구현
 - 그 다음: `Phase 11 ~ Phase 14` 프론트 연결
 - 이후: `Phase 15 ~ Phase 18` 확장 및 안정화
 
-`Phase 8 ~ 10` 참고 문서 우선순위:
+`Phase 10` 참고 문서 우선순위:
 
 1. `docs/task.md`
 2. `docs/current_implementation_status.md`
@@ -177,7 +177,17 @@
   - evidence
   - `runs/{run_id}` 저장
   - `report_context`, `execution_analysis` 생성
-- 현재 다음 시작점은 `Phase 8 payload`다
+- `Phase 8`도 완료다
+  - 모듈별 builder payload
+  - input standard
+  - payload API
+- `Phase 9`도 완료다
+  - preview HTML 생성
+  - builder reports / artifacts API
+  - `total_valid_preview.html` 생성
+  - CRM / Territory 템플릿 계약 복원
+  - lazy-load 주입 정상화
+- 현재 다음 시작점은 `Phase 10 worker runtime`이다
 
 최근 검증 메모:
 
@@ -194,6 +204,12 @@
 
 이 결과는 현재 버그라기보다,
 로우 생성기 기반 테스트 데이터라 동선 최적화 재료가 약해서 나온 정상 결과로 본다.
+
+추가 메모:
+
+- 위 해석은 `validation 단계` 기준이다
+- 이후 `daon_pharma` 기준 Builder 복원 작업으로
+  `Territory` 화면 자체는 월/일 선택, 병원 마커, 목표금액, 달성률까지 정상 동작을 다시 확인했다
 
 현재 구현 진행사항 상세는 아래 문서만 기준으로 본다.
 

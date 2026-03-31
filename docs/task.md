@@ -1282,7 +1282,7 @@ Phase 6 저장 경로 메모:
 - 이 결과는 현재 버그라기보다 로우 생성기 기반 테스트 데이터라 동선 최적화 재료가 약해서 나온 정상 결과로 본다
 - 다음 시작점은 `Phase 8. payload 조립 구현`이다
 
-### [ ] Phase 8. payload 조립 구현
+### [x] Phase 8. payload 조립 구현
 
 구현 시 먼저 볼 설계 문서:
 
@@ -1316,7 +1316,35 @@ Phase 6 저장 경로 메모:
 
 - Builder 입력 구조가 고정됨
 
-### [ ] Phase 9. Builder 구현
+현재 진행 메모:
+
+- [x] `src/lib/server/builder/run.ts` 추가
+- [x] `src/lib/server/builder/types.ts` 추가
+- [x] `src/lib/server/builder.ts` 공개 진입점 추가
+- [x] 모듈별 builder payload 생성
+  - `crm_builder_payload.json`
+  - `sandbox_builder_payload.json`
+  - `territory_builder_payload.json`
+  - `prescription_builder_payload.json`
+  - `radar_builder_payload.json`
+- [x] Builder 입력용 input standard 생성
+  - `data/validation/{company_key}/builder/{module}_builder_input_standard.json`
+- [x] `POST /api/companies/[companyKey]/payload/run` 추가
+- [x] `GET /api/companies/[companyKey]/payload/result` 추가
+- [x] `GET /api/companies/[companyKey]/payload/result/[moduleKey]` 추가
+- [x] run bundle에 payload index 연결
+  - `runs/{run_id}/builder_payload_index.json`
+- [x] `artifacts.index.json`에 `builder_payload`, `builder_input_standard`, `payload_index` 연결
+- [x] `report_context.full.json`, `report_context.prompt.json`에 payload linked artifact 연결
+- [x] `src/lib/server/builder/builder.test.ts` 추가
+
+현재 해석:
+
+- `Phase 8`은 완료다
+- Builder가 raw나 KPI를 다시 읽지 않고, `validated result asset + validation summary` 기준 payload만 읽게 되는 구조가 고정됐다
+- 다음 시작점은 `Phase 10`에서 이 흐름을 worker run 단위로 묶는 일이다
+
+### [x] Phase 9. Builder 구현
 
 구현 시 먼저 볼 설계 문서:
 
@@ -1354,6 +1382,54 @@ Phase 6 저장 경로 메모:
 완료 기준:
 
 - 실제 Builder 결과물이 생성됨
+
+현재 진행 메모:
+
+- [x] `src/lib/server/builder/render.ts` 추가
+- [x] payload 기준 preview HTML 생성
+  - `crm_analysis_preview.html`
+  - `sandbox_report_preview.html`
+  - `territory_map_preview.html`
+  - `prescription_flow_preview.html`
+  - `radar_report_preview.html`
+- [x] preview 표준 JSON 생성
+  - `*_preview_input_standard.json`
+  - `*_preview_payload_standard.json`
+  - `*_preview_result_asset.json`
+- [x] `builder_validation_summary.json` 생성
+- [x] `total_valid_preview.html` 생성
+- [x] `POST /api/companies/[companyKey]/builder/render` 추가
+- [x] `GET /api/companies/[companyKey]/builder/reports` 추가
+- [x] `GET /api/companies/[companyKey]/builder/reports/[reportType]` 추가
+- [x] `GET /api/companies/[companyKey]/builder/artifacts` 추가
+- [x] run bundle에 builder reports index 연결
+  - `runs/{run_id}/builder_reports_index.json`
+- [x] `artifacts.index.json`에 `builder_html`, `builder_preview_result_asset`, `builder_reports_index` 연결
+- [x] `report_context.full.json`, `report_context.prompt.json`에 builder reports linked artifact 연결
+- [x] `src/lib/server/builder/builder.test.ts`에서 render 검증 추가
+
+현재 해석:
+
+- `Phase 9`는 최소 버전 기준으로 완료다
+- Builder는 이제 payload만 읽어 모듈별 preview HTML과 표준 결과 파일을 실제로 만든다
+- 다음 시작점은 `Phase 10. Worker Runtime 구현`이다
+
+`2026-03-31` 추가 완료 메모:
+
+- [x] CRM 템플릿 계약 기준 payload 재조립
+- [x] CRM lazy-load scope chunk 적용
+- [x] Territory 템플릿 계약 기준 payload 재조립
+- [x] Territory lazy-load rep/month chunk 적용
+- [x] Territory 월 선택 / 일 선택 복원
+- [x] Territory 병원 마커 표시 복원
+- [x] Territory 병원 popup의 `누적목표`, `Attainment` 복원
+- [x] `daon_pharma` 기준 Builder 통합실행 재검증
+
+추가 해석:
+
+- `Phase 9`는 단순 preview 생성 완료를 넘어서
+  현재 프로젝트 경로 기준 주입 구조와 원본 템플릿 계약을 다시 맞춘 상태다
+- `daon_pharma`는 Builder 화면 검증용 기준 회사로 계속 사용한다
 
 ### [ ] Phase 10. Worker Runtime 구현
 

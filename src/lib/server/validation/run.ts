@@ -614,7 +614,8 @@ export async function runValidation(input: {
 }): Promise<ValidationRunSummary> {
   const companyKey = input.companyKey;
   assertValidCompanyKey(companyKey);
-  let kpi = await readLatestKpiResult(companyKey);
+  const shouldRefreshUpstream = Boolean(input.executionMode);
+  let kpi = shouldRefreshUpstream ? null : await readLatestKpiResult(companyKey);
   if (!kpi) {
     kpi = await runKpi({ companyKey, executionMode: input.executionMode ?? null });
   }

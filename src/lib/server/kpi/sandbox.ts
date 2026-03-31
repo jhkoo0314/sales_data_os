@@ -62,9 +62,9 @@ export async function buildSandboxResultAsset(
     record.has_sales = true;
   }
   for (const row of target?.rows ?? []) {
-    const hospitalId = cleanText(row.account || row["병원코드"]);
+    const hospitalId = cleanText(row.account || row["병원코드"] || row["거래처코드"]);
     const metricMonth = toMonthToken(row.period || row["목표월"]);
-    const record = getOrCreate(hospitalId, metricMonth, cleanText(row["병원명"]));
+    const record = getOrCreate(hospitalId, metricMonth, cleanText(row["병원명"] || row["거래처명"]));
     record.total_target = toNumber(record.total_target) + toNumber(row.target_value || row["목표금액"]);
     record.has_target = true;
   }
