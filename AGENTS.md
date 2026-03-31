@@ -79,12 +79,24 @@
 
 ### 5-1. 현재 구현 우선순위
 
-기본 화면 뼈대는 이미 한 번 구현된 상태다.
+기본 화면 뼈대와 백엔드 설계 문서는 이미 정리된 상태다.
 따라서 지금부터 우선순위는
 `새 화면 추가`
 보다
-`백엔드 엔진 설계`
-가 먼저다.
+`백엔드 파일 구현`
+이 먼저다.
+
+현재 기준 구현 상태:
+
+- `Phase 1. 기반 고정` 완료
+- `Phase 2. 앱 프레임과 디자인 베이스` 완료
+- 백엔드 로직 설계 문서 완료
+
+다음 구현 순서:
+
+1. 백엔드 구현 `Phase 3 ~ Phase 10`
+2. 프론트 화면 연결 `Phase 11 ~ Phase 14`
+3. 이후 `RADAR`, 보조 기능, `Agent`, 운영 안정화
 
 현재 고정해야 하는 공식 백엔드 흐름:
 
@@ -150,6 +162,7 @@
 - `docs/11_antigravity_html_design_brief.md`
 - `docs/12_report_template_dependencies.md`
 - `docs/13_backend_logic_request_prompt.md`
+- `docs/backend_architecture/`
 
 맥락 유지용 스킬:
 

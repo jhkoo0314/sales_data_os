@@ -37,14 +37,14 @@
 - Web: 입력, 실행, 상태 추적, 설명, 결과 열람
 - Worker: 무거운 계산, 결과 생성, 단계 상태 갱신
 
-### 2-1. 현재 우선순위는 백엔드 설계다
+### 2-1. 현재 우선순위는 백엔드 구현이다
 
-기본 화면 뼈대는 이미 구현된 상태다.
+기본 화면 뼈대와 백엔드 설계 문서는 이미 정리된 상태다.
 따라서 지금부터는
 `새 화면 추가`
 보다
-`백엔드 엔진 설계`
-가 먼저다.
+`백엔드 파일 구현`
+이 먼저다.
 
 공식 백엔드 흐름:
 
@@ -142,18 +142,13 @@
 
 ## 현재 구현 Phase
 
-문서 기준 Phase는 아래처럼 이해한다.
+문서 기준 현재 상태는 아래처럼 이해한다.
 
-- `Phase A`: 기반 고정
-- `Phase B`: 앱 프레임과 디자인 베이스
-- `Phase C`: 운영 진입 흐름
-- `Phase D`: 실행 추적과 결과 해석
-- `Phase E`: 최종 결과물 탐색
-- `Phase F`: 데이터 연결
-- `Phase G`: 실행 엔진 연결
-- `Phase H`: 보조 기능 확장
-- `Phase I`: Agent 구현
-- `Phase J`: 운영 안정화
+- `Phase 1`: 기반 고정 완료
+- `Phase 2`: 앱 프레임과 디자인 베이스 완료
+- 다음 우선순위: `Phase 3 ~ Phase 10` 백엔드 구현
+- 그 다음: `Phase 11 ~ Phase 14` 프론트 연결
+- 이후: `Phase 15 ~ Phase 18` 확장 및 안정화
 
 ## 지금 바로 필요한 페이지
 
@@ -219,6 +214,7 @@ Agent는 단순 채팅창이 아니다.
 5. `docs/11_antigravity_html_design_brief.md`
 6. `docs/12_report_template_dependencies.md`
 7. `docs/13_backend_logic_request_prompt.md`
+8. `docs/backend_architecture/`
 
 필요 시 추가:
 

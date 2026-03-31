@@ -582,7 +582,34 @@ sales_os/
 
 ## 16. 구현 순서
 
-### [x] Phase A. 기반 고정
+### 현재 구현 상태와 다음 순서
+
+- 현재 기준으로 `Phase 2. 앱 프레임과 디자인 베이스`까지 완료한 상태로 본다
+- 즉 디자인 뼈대와 기본 화면 구조는 이미 준비되어 있다
+- 다음 구현은 화면을 더 넓히는 것보다
+  설계한 백엔드 로직을 실제 파일로 구현하는 것이 먼저다
+- 그 다음에 프론트엔드 화면과 실제 엔진을 연결하면서 붙인다
+
+쉽게 말하면 다음 순서는 아래다.
+
+1. `docs/13_backend_logic_request_prompt.md` 기준으로 백엔드 엔진 파일 구현
+2. worker / run / result 흐름이 실제로 동작하도록 연결
+3. 그 후 프론트엔드에서 실행, 상태 조회, 결과 열람을 실제 엔진과 연결
+
+중요:
+
+- 프론트가 먼저 계산 로직을 흉내 내지 않는다
+- 먼저 백엔드 엔진 파일을 만든 뒤 화면과 연결한다
+- `docs/13_backend_logic_request_prompt.md`는 설계 기준 문서다
+- 이 `task.md`는 실제 구현 순서 문서다
+
+### [x] Phase 1. 기반 고정
+
+목적:
+
+- 개발 시작 전에 기술/구조/문맥을 흔들리지 않게 고정
+
+포함 항목:
 
 - 루트 폴더에서 `pnpm`으로 Next.js 프로젝트 시작
 - TypeScript / Tailwind / ESLint / Prettier 설정
@@ -591,7 +618,17 @@ sales_os/
 - 기본 폴더 구조 생성
 - 라우트 뼈대 생성
 
-### [x] Phase B. 앱 프레임과 디자인 베이스
+완료 기준:
+
+- 다음 Phase에서 바로 코드 작업 가능
+
+### [x] Phase 2. 앱 프레임과 디자인 베이스
+
+목적:
+
+- 전체 앱의 공통 뼈대와 디자인 토큰을 먼저 만든다
+
+포함 항목:
 
 - App Shell
 - Sidebar
@@ -599,204 +636,358 @@ sales_os/
 - Company Context Bar
 - 상태 배지 / 카드 / 스켈레톤 컴포넌트
 
-### [ ] Phase C. 운영 진입 흐름
+완료 기준:
 
-- Company Switcher
-- Upload
-- Pipeline
-- Reports
+- 디자인 뼈대와 기본 화면 구조가 준비됨
 
-이 단계에서 중요한 것은
-단순 빈 카드 배치가 아니라
-운영 설명과 판단 문장이 들어갈 자리까지 같이 만드는 것이다.
+### [ ] Phase 3. 입력 수용 구현
 
-### [ ] Phase D. 실행 추적과 결과 해석
+구현 시 먼저 볼 설계 문서:
 
-- Run Detail
-- run selector / run switcher
-- 단계별 상태
-- WARN/FAIL 설명 문장
-- 근거 수치 / evidence 영역
-
-### [ ] Phase E. 최종 결과물 탐색
-
-- Reports
-- Artifacts
-- 보고서 / 산출물 연결
-
-### [ ] Phase F. 데이터 연결
-
-- companies
-- uploads + storage
-- pipeline runs
-- reports
-- Supabase 타입 연결
-
-### [ ] Phase G. 실행 엔진 연결
-
-- Python polling worker
-- run step 상태 기록
-- worker 상태 전환
-- 결과 메타 저장
-
-### [ ] Phase H. 보조 기능 확장
-
-- 예시 HTML 기반 스타일 정교화
-- Artifacts / Admin 확장
-
-### [ ] Phase I. Agent 구현
-
-- run 기준 질문/응답 화면
-- 근거 artifact 연결
-- 대화 흐름 설계
-- 결과 해석 보조 UX
-
-### [ ] Phase J. 운영 안정화
-
-- 에러/로딩/테스트 정리
-- 운영 품질 정리
-
-## 16-1. Phase별 구현 계획 한눈에 보기
-
-아래 표처럼 보면
-`어떤 페이지를 언제 만들고`
-`어떤 것은 지금 꼭 필요하고`
-`어떤 것은 나중으로 미뤄도 되는지`
-를 빠르게 판단할 수 있다.
-
-### [x] Phase A. 기반 고정
+- `docs/13_backend_logic_request_prompt.md`
+  - `Phase 1. 입력 단계 명세`
+- `docs/backend_architecture/SALES_DATA_OS_BACKEND_LOGIC_SPEC.md`
+  - `01_input_spec`
+- `docs/backend_architecture/SALES_DATA_OS_WEB_BACKEND_API_SPEC.md`
+  - 입력 업로드 API
+- `docs/backend_architecture/SALES_DATA_OS_FRONTEND_API_TABLE.md`
+  - sources upload / monthly-upload 흐름
 
 목적:
 
-- 개발 시작 전에 기술/구조/문맥을 흔들리지 않게 고정
+- 입력 파일이 `company_key` 기준으로 안정적으로 저장되게 한다
 
-포함 항목:
+핵심 구현:
 
-- 문서 동기화
-- 디자인 방향 확정
-- 루트 기준 프로젝트 구조 확정
-- `Supabase + Python polling worker` 구조 확정
-
-이 단계에서 아직 안 하는 것:
-
-- 실제 업무 화면 완성
-- 실제 데이터 연결 완성
+- 파일 수신
+- 파일 메타 저장
+- source 구분
+- 회사/run 문맥 연결
+- 원본 raw 보관
+- 업로드 세션 단위 정리
 
 완료 기준:
 
-- 다음 Phase에서 바로 코드 작업 가능
+- 원본 데이터가 intake 단계로 안정적으로 들어올 수 있음
 
-### [x] Phase B. 앱 프레임과 디자인 베이스
+### [ ] Phase 4. 입력 검증 구현
+
+구현 시 먼저 볼 설계 문서:
+
+- `docs/13_backend_logic_request_prompt.md`
+  - `Phase 2. 입력 검증 규칙`
+- `docs/backend_architecture/SALES_DATA_OS_BACKEND_LOGIC_SPEC.md`
+  - `02_prevalidation_rules`
+- `docs/backend_architecture/SALES_DATA_OS_WEB_BACKEND_API_SPEC.md`
+  - intake / onboarding API
+- `docs/backend_architecture/SALES_DATA_OS_FRONTEND_API_TABLE.md`
+  - intake analyze / result / confirm
 
 목적:
 
-- 전체 앱의 공통 뼈대와 디자인 토큰을 먼저 만든다
+- 입력이 다음 단계로 넘어갈 수 있는 상태인지 실제로 판정한다
 
-포함 페이지 / 구조:
+핵심 구현:
 
-- 전역 `App Shell`
-- 상단 Navigation / Context Header
-- 공통 버튼 / 배지 / 카드 / 패널
-- 공통 상태 표현
-- 디자인 HTML 기반 공통 레이아웃
-
-이 단계의 성격:
-
-- 페이지 구현 전 공통 뼈대 작업
+- 필수 파일 존재 여부 판정
+- 컬럼 존재 여부 점검
+- 타입/형식 sanity check
+- 날짜/월 범위 점검
+- source별 기간 계산
+- 공통 분석 구간 계산
+- 자동 수정 가능 항목과 사람 검토 필요 항목 분리
+- intake verdict 생성
 
 완료 기준:
 
-- 어느 페이지를 붙여도 같은 제품처럼 보이는 기반이 생김
+- 어떤 입력이 왜 진행 가능/불가인지 설명 가능
 
-### [ ] Phase C. 운영 진입 흐름
+### [ ] Phase 5. 정규화 구현
+
+구현 시 먼저 볼 설계 문서:
+
+- `docs/13_backend_logic_request_prompt.md`
+  - `Phase 3. 정규화 규칙`
+- `docs/backend_architecture/SALES_DATA_OS_BACKEND_LOGIC_SPEC.md`
+  - `03_normalization_schema`
+- `docs/backend_architecture/SALES_DATA_OS_WEB_BACKEND_API_SPEC.md`
+  - pipeline 실행 전 데이터 기준
 
 목적:
 
-- 사용자가 가장 먼저 쓰는 흐름을 웹에서 성립시킨다
+- 검증된 raw를 공통 스키마로 바꿔 이후 모듈이 같은 입력 구조를 읽게 한다
 
-포함 페이지:
+핵심 구현:
 
-1. `Workspace`
-2. `Upload`
-3. `Pipeline`
+- raw -> 표준 스키마 adapter 연결
+- source별 공통 필드 매핑
+- 표준 row 구조 생성
+- `_intake_staging` 및 표준 결과 저장
 
-이 단계에서 구현할 핵심:
+완료 기준:
 
-- 현재 회사 문맥
+- KPI 계산 입력 구조가 회사별 차이 없이 통일됨
+
+### [ ] Phase 6. KPI 계산과 Result Asset Base 구현
+
+구현 시 먼저 볼 설계 문서:
+
+- `docs/13_backend_logic_request_prompt.md`
+  - `Phase 4. 모듈 역할과 입출력`
+  - `Phase 5. KPI 계산 상세`
+  - `Phase 7. result asset / payload 구조`
+- `docs/backend_architecture/SALES_DATA_OS_BACKEND_LOGIC_SPEC.md`
+  - `04_module_responsibility_and_io`
+  - `05_kpi_module_io`
+  - `07_result_asset_payload_spec`
+- `docs/backend_architecture/CRM_KPI_FORMULA_SPEC.md`
+  - CRM 11개 지표 계산 규칙
+
+목적:
+
+- 공식 KPI 계산과 모듈별 result asset 생성 흐름을 실제 파일로 만든다
+
+핵심 구현:
+
+- `modules/kpi/*` 엔진 연결
+- `crm / sandbox / territory / prescription / radar` 결과 흐름 정리
+- 모듈별 result asset 초안 생성
+- 재계산 없이 다음 단계가 소비할 수 있게 구조화
+
+완료 기준:
+
+- 공식 KPI 엔진과 result asset 생성 흐름이 실제로 동작함
+
+### [ ] Phase 7. validation 구현
+
+구현 시 먼저 볼 설계 문서:
+
+- `docs/13_backend_logic_request_prompt.md`
+  - `Phase 6. validation 규칙`
+  - `Phase 7. result asset / payload 구조`
+- `docs/backend_architecture/SALES_DATA_OS_BACKEND_LOGIC_SPEC.md`
+  - `06_validation_rules`
+  - `07_result_asset_payload_spec`
+- `docs/backend_architecture/SALES_DATA_OS_WEB_BACKEND_API_SPEC.md`
+  - validation summary 구조
+- `docs/backend_architecture/SALES_DATA_OS_FRONTEND_API_TABLE.md`
+  - validation / module result API
+
+목적:
+
+- 계산 결과를 다음 단계로 넘길지 실제로 판단한다
+
+핵심 구현:
+
+- `modules/validation/*` 연결
+- 품질 검증
+- 매핑 검증
+- 전달 가능 여부 판단
+- WARN / FAIL reason 생성
+- 단계별 판정 기록
+
+완료 기준:
+
+- WARN/FAIL 이유와 근거가 실제 validation 결과에서 옴
+
+### [ ] Phase 8. payload 조립 구현
+
+구현 시 먼저 볼 설계 문서:
+
+- `docs/13_backend_logic_request_prompt.md`
+  - `Phase 7. result asset / payload 구조`
+  - `Phase 8. Builder 주입 명세`
+- `docs/backend_architecture/SALES_DATA_OS_BACKEND_LOGIC_SPEC.md`
+  - `07_result_asset_payload_spec`
+  - `08_builder_template_mapping`
+- `docs/backend_architecture/SALES_DATA_OS_WEB_BACKEND_API_SPEC.md`
+  - builder / report API
+
+목적:
+
+- Builder가 raw나 KPI 엔진이 아니라 payload만 읽게 만든다
+
+핵심 구현:
+
+- validation 통과 결과 조합
+- Builder 입력용 payload 생성
+- 보고서별 payload 분기
+- artifact / report 메타 연결
+
+완료 기준:
+
+- Builder 입력 구조가 고정됨
+
+### [ ] Phase 9. Builder 구현
+
+구현 시 먼저 볼 설계 문서:
+
+- `docs/13_backend_logic_request_prompt.md`
+  - `Phase 7. result asset / payload 구조`
+  - `Phase 8. Builder 주입 명세`
+- `docs/backend_architecture/SALES_DATA_OS_BACKEND_LOGIC_SPEC.md`
+  - `08_builder_template_mapping`
+- `docs/backend_architecture/SALES_DATA_OS_WEB_BACKEND_API_SPEC.md`
+  - builder / report API
+- `docs/backend_architecture/SALES_DATA_OS_FRONTEND_API_TABLE.md`
+  - builder reports / render / artifacts
+
+목적:
+
+- 검증이 끝난 payload를 읽어 최종 보고서와 결과물을 만든다
+
+핵심 구현:
+
+- HTML/PDF 보고서 렌더
+- 최종 전달물 생성
+- report context / artifacts index 저장
+
+완료 기준:
+
+- 실제 Builder 결과물이 생성됨
+
+### [ ] Phase 10. Worker Runtime 구현
+
+구현 시 먼저 볼 설계 문서:
+
+- `docs/13_backend_logic_request_prompt.md`
+  - `Phase 1 ~ Phase 8 전체`
+- `docs/backend_architecture/SALES_DATA_OS_BACKEND_LOGIC_SPEC.md`
+  - 전체 운영 로직 흐름
+- `docs/backend_architecture/SALES_DATA_OS_WEB_BACKEND_API_SPEC.md`
+  - pipeline 실행 / run / validation / builder API
+- `docs/backend_architecture/SALES_DATA_OS_PLANNER_SUMMARY.md`
+  - 전체 흐름 요약
+
+목적:
+
+- 입력부터 payload 생성까지를 worker가 하나의 실행 흐름으로 묶어 처리하게 만든다
+
+핵심 구현:
+
+- `workers/run_worker.py`
+- `workers/services/run_executor.py`
+- `workers/services/status_updater.py`
+- Supabase polling
+- `pending -> running -> completed/failed`
+- 중간 step 상태 저장
+
+완료 기준:
+
+- 웹에서 run을 만들면 worker가 실제 엔진 순서를 실행함
+
+### [ ] Phase 11. 운영 진입 화면 연결
+
+구현 시 먼저 볼 설계 문서:
+
+- `docs/13_backend_logic_request_prompt.md`
+  - `Phase 1. 입력 단계 명세`
+  - `Phase 2. 입력 검증 규칙`
+- `docs/backend_architecture/SALES_DATA_OS_FRONTEND_API_TABLE.md`
+  - 회사 선택 / 업로드 / intake / pipeline 호출 흐름
+- `docs/backend_architecture/SALES_DATA_OS_WEB_BACKEND_API_SPEC.md`
+  - companies / sources / intake / pipeline API
+
+목적:
+
+- 이미 만든 디자인 뼈대에 실제 입력/실행 흐름을 붙인다
+
+포함 화면:
+
+- `Workspace`
+- `Upload`
+- `Pipeline`
+
+핵심 구현:
+
+- 회사 문맥 표시
 - 업로드 상태 표시
-- intake 설명
-- 실행 가능/불가 사유
+- intake 설명 연결
+- 실행 가능/불가 사유 연결
 - 실행 모드 선택
-- run 시작 진입점
-
-왜 먼저 필요한가:
-
-- 이 3개가 없으면 운영자가 웹에서 실제 일을 시작할 수 없음
+- run 시작 진입점 연결
 
 완료 기준:
 
-- 회사 선택 -> 업로드 확인 -> 실행 진입 흐름이 웹에서 가능
-- 현재는 기본 뼈대가 이미 있으므로,
-  이 Phase는 신규 화면 생성보다
-  백엔드 엔진 연결을 받을 준비 상태로 보는 것이 맞다
+- 회사 선택 -> 업로드 확인 -> 실행 진입 흐름이 실제 데이터와 연결됨
 
-### [ ] Phase D. 실행 추적과 결과 해석
+### [ ] Phase 12. 실행 추적과 결과 해석 화면 연결
+
+구현 시 먼저 볼 설계 문서:
+
+- `docs/13_backend_logic_request_prompt.md`
+  - `Phase 6. validation 규칙`
+  - `Phase 7. result asset / payload 구조`
+- `docs/backend_architecture/SALES_DATA_OS_FRONTEND_API_TABLE.md`
+  - validation summary / runs / run artifacts
+- `docs/backend_architecture/SALES_DATA_OS_WEB_BACKEND_API_SPEC.md`
+  - validation summary 구조
 
 목적:
 
-- 실행 후 사용자가 상태와 이유를 읽을 수 있게 한다
+- 사용자가 특정 run의 상태와 이유를 실제 데이터로 읽을 수 있게 한다
 
-포함 페이지:
+포함 화면:
 
-1. `Run Detail`
+- `Run Detail`
 
-이 단계에서 구현할 핵심:
+핵심 구현:
 
-- run selector / run switcher
-- 현재/과거 run 구분
+- run selector / switcher
 - 단계별 상태
 - WARN/FAIL 설명 문장
 - 근거 수치 / evidence 영역
 
-왜 필요한가:
-
-- Pipeline만 있고 결과 해석 화면이 없으면 운영 제품으로 완결되지 않음
-
 완료 기준:
 
-- 사용자가 특정 run을 열고 무슨 일이 있었는지 이해할 수 있음
+- 사용자가 특정 run을 열고 실제 결과를 이해할 수 있음
 
-### [ ] Phase E. 최종 결과물 탐색
+### [ ] Phase 13. 결과물 탐색 화면 연결
+
+구현 시 먼저 볼 설계 문서:
+
+- `docs/13_backend_logic_request_prompt.md`
+  - `Phase 7. result asset / payload 구조`
+  - `Phase 8. Builder 주입 명세`
+- `docs/backend_architecture/SALES_DATA_OS_FRONTEND_API_TABLE.md`
+  - builder reports / artifacts
+- `docs/backend_architecture/SALES_DATA_OS_WEB_BACKEND_API_SPEC.md`
+  - builder / report API
 
 목적:
 
-- 최종 보고서와 산출물을 쉽게 찾게 한다
+- 최종 보고서와 산출물을 실제 결과와 연결한다
 
-포함 페이지:
+포함 화면:
 
-1. `Reports`
-2. `Artifacts`
+- `Reports`
+- `Artifacts`
 
-이 단계에서 구현할 핵심:
+핵심 구현:
 
 - 보고서 카드
 - 열기 / 다운로드
 - 관련 run 연결
 - artifact 메타 목록
 
-왜 필요한가:
-
-- 최종 결과를 전달하는 운영 경험이 완성됨
-
 완료 기준:
 
-- run 결과에서 실제 보고서와 산출물로 자연스럽게 이동 가능
+- run 결과에서 실제 보고서와 산출물로 이동 가능
 
-### [ ] Phase F. 데이터 연결
+### [ ] Phase 14. 데이터 연결 정리
+
+구현 시 먼저 볼 설계 문서:
+
+- `docs/13_backend_logic_request_prompt.md`
+  - `Phase 1 ~ Phase 8 전체`
+- `docs/backend_architecture/SALES_DATA_OS_WEB_BACKEND_API_SPEC.md`
+  - 주요 요청/응답 구조
+- `docs/backend_architecture/SALES_DATA_OS_FRONTEND_API_TABLE.md`
+  - 프론트가 바로 써야 하는 상태값 표
 
 목적:
 
-- mock 기반 화면을 실제 데이터 흐름에 연결한다
+- 화면 전반을 mock이 아니라 실제 Supabase 데이터 흐름으로 맞춘다
 
 포함 항목:
 
@@ -807,76 +998,71 @@ sales_os/
 - `reports`
 - `artifacts`
 
-이 단계의 성격:
-
-- 화면보다 데이터 연결 중심
-
 완료 기준:
 
-- 주요 페이지가 실제 Supabase 데이터로 동작
+- 주요 페이지가 실제 데이터로 동작
 
-### [ ] Phase G. 실행 엔진 연결
+### [ ] Phase 15. RADAR 구현
+
+구현 시 먼저 볼 설계 문서:
+
+- `docs/13_backend_logic_request_prompt.md`
+  - `Phase 4. 모듈 역할과 입출력`
+  - `Phase 6. validation 규칙`
+  - `Phase 7. result asset / payload 구조`
+- `docs/backend_architecture/SALES_DATA_OS_BACKEND_LOGIC_SPEC.md`
+  - RADAR 관련 구간
+- `docs/backend_architecture/SALES_DATA_OS_PLANNER_SUMMARY.md`
+  - RADAR 역할 요약
 
 목적:
 
-- 장기 실행을 실제 worker 구조에 연결한다
+- validation 통과 결과 위에서 신호와 우선순위를 만든다
+
+핵심 구현:
+
+- signal detection
+- issue prioritization
+- decision option 템플릿화
+
+완료 기준:
+
+- 추가 인사이트를 생성할 수 있음
+
+### [ ] Phase 16. 보조 기능 확장
+
+목적:
+
+- 핵심 흐름 이후 필요한 관리 기능과 시각 보강을 붙인다
 
 포함 항목:
 
-- Python polling worker
-- `pending -> running -> completed/failed` 전환
-- step 상태 갱신
-- 결과 메타 저장
-
-완료 기준:
-
-- 웹에서 실행 시작 후 실제 run이 worker로 처리됨
-
-### [ ] Phase H. 보조 기능 확장
-
-목적:
-
-- 핵심 운영 흐름 이후의 보조 관리 기능을 붙인다
-
-포함 페이지:
-
-1. `Admin`
-
-이 단계에서 구현할 핵심:
-
-- 회사 관리 화면
+- 예시 HTML 기반 스타일 정교화
+- `Admin`
+- Artifacts/Admin 확장
 
 완료 기준:
 
 - 핵심 운영 흐름 밖의 관리 기능까지 제품 형태를 갖춤
 
-### [ ] Phase I. Agent 구현
+### [ ] Phase 17. Agent 구현
 
 목적:
 
-- 지금은 부가기능이지만 장기적으로 핵심축이 될 Agent를 가장 마지막 구현 단계로 붙인다
+- run, artifact, report 문맥 위에서 해석 보조 기능을 붙인다
 
-포함 페이지:
-
-1. `Agent`
-
-이 단계에서 구현할 핵심:
+핵심 구현:
 
 - run 기준 질문/응답
 - 근거 artifact 연결
 - report / artifact / run 문맥 기반 응답
-- 단순 채팅이 아니라 운영 해석 보조 UX
-
-왜 마지막인가:
-
-- Agent는 run, artifact, report, validation 문맥이 먼저 갖춰져야 의미가 있음
-- 핵심 운영 흐름이 먼저 안정화되어야 Agent 품질도 맞출 수 있음
+- 운영 해석 보조 UX
 
 완료 기준:
 
-- 사용자가 특정 run 기준으로 질문하고, 근거와 함께 해석을 받을 수 있음
+- 사용자가 특정 run 기준으로 질문하고 근거와 함께 해석을 받을 수 있음
 
-### [ ] Phase J. 운영 안정화
+### [ ] Phase 18. 운영 안정화
 
 목적:
 
@@ -894,275 +1080,11 @@ sales_os/
 
 - 운영 중 깨지기 쉬운 구간이 줄어들고 유지보수 가능한 상태가 됨
 
-## 16-2. 페이지 우선순위 요약
-
-### 지금 바로 필요한 페이지
-
-- `Workspace`
-- `Upload`
-- `Pipeline`
-- `Run Detail`
-- `Reports`
-
-### 바로 뒤에 필요한 페이지
-
-- `Artifacts`
-
-### 나중에 붙여도 되는 페이지
-
-- `Admin`
-
-### 가장 마지막 구현 단계에 둘 페이지
-
-- `Agent`
-
-즉 현재 기준으로는
-디자인 HTML 4개만으로는 전체 범위가 끝난 것이 아니고,
-최소한 `Run Detail`, `Reports`, `Artifacts`까지는 구현 계획 안에 포함되어 있어야 한다.
-
-## 16-3. 백엔드 엔진 구현 Phase
-
-위의 `Phase A~J`는 화면과 제품 작업 순서다.
-하지만 이 프로젝트의 본질은 화면보다
-`Sales Data OS 엔진`
-이기 때문에,
-실제 구현은 아래 엔진 Phase를 병행해야 한다.
-
-### 백엔드 공식 흐름
-
-이제부터 백엔드 공식 흐름은 아래 순서로 고정한다.
-
-`입력 -> 검증 -> 정규화 -> KPI 계산 -> Validation -> Result Asset / Payload -> Builder`
-
-주의:
-
-- 여기서 앞단 `검증`은 파일/컬럼/기간/필수값 점검 성격이다
-- 뒤쪽 `Validation`은 KPI 계산 이후의 전달 판단 레이어다
-- 둘은 이름이 비슷해도 역할이 다르다
-
-### [ ] Engine 1. 입력 수용 / Input Intake
-
-언제:
-
-- 화면 기준 `Phase C`와 동시에 시작
-
-왜 먼저인가:
-
-- Upload 화면이 단순 파일 업로드가 아니라
-  `필수 입력 확인`, `자동 수정`, `기간 차이`, `공통 분석 구간`, `진행 가능 여부`
-  를 설명해야 하기 때문
-
-핵심 구현:
-
-- 파일 수신
-- 파일 메타 저장
-- source 구분
-- 회사/run 문맥 연결
-- 원본(raw) 보관
-- 업로드 세션 단위 정리
-
-완료 기준:
-
-- 원본 데이터가 intake 단계로 안정적으로 들어올 수 있음
-
-### [ ] Engine 2. 입력 검증 / Pre-Normalization Validation
-
-언제:
-
-- `Engine 1` 바로 다음
-
-왜 이 시점인가:
-
-- 정규화 전에 먼저 입력이 읽을 수 있는 상태인지 확인해야 하기 때문
-- raw를 바로 adapter나 KPI로 넘기면 기준이 흔들릴 수 있음
-
-핵심 구현:
-
-- 필수 파일 존재 여부 판정
-- 컬럼 존재 여부 점검
-- 타입/형식 sanity check
-- 날짜/월 범위 점검
-- source별 기간 계산
-- 공통 분석 가능 구간 계산
-- 자동 수정 가능 항목과 사람 검토 필요 항목 분리
-- intake verdict 생성
-
-완료 기준:
-
-- Upload 화면이 실제 intake 판단 결과를 보여줄 수 있음
-- 어떤 입력이 왜 진행 가능/불가인지 설명 가능
-
-### [ ] Engine 3. 정규화 / Adapter Layer
-
-언제:
-
-- `Engine 2` 다음
-
-왜 이 시점인가:
-
-- 검증된 raw만 공통 스키마로 바꾸는 것이 안전하기 때문
-
-왜 이 시점인가:
-
-- 정규화가 끝나야 KPI 계산이 모듈 공통 기준으로 들어갈 수 있음
-
-핵심 구현:
-
-- raw -> 표준 스키마 adapter 연결
-- source별 공통 필드 매핑
-- 표준 row 구조 생성
-- 정규화 결과 저장
-
-완료 기준:
-
-- KPI 엔진이 읽는 입력 구조가 회사별 차이 없이 통일됨
-
-### [ ] Engine 4. KPI Engine + Result Asset Base
-
-언제:
-
-- `Engine 3` 다음, `Phase C ~ Phase D`와 병행
-
-왜 이 시점인가:
-
-- KPI는 단일 소스라서 초반부터 기준을 고정해야 함
-- 나중에 프론트 임시 계산이나 중복 계산이 들어가면 구조가 무너짐
-
-핵심 구현:
-
-- `modules/kpi/*` 엔진 연결
-- 전체 `9개 모듈` 기준 경계 고정
-- 겉으로 드러나는 `5개 모듈`
-  - `CRM`
-  - `Sandbox`
-  - `Prescription`
-  - `Territory`
-  - `RADAR`
-  기준으로 결과 흐름 정리
-- 내부 엔진 `intake / kpi / validation / builder` 경계 고정
-- 계산 결과를 모듈별 Result Asset 초안으로 생성
-- 다음 단계가 재계산 없이 소비할 수 있게 구조화
-
-완료 기준:
-
-- 파이프라인 실행 시 공식 KPI 엔진과 Result Asset 생성 흐름이 존재함
-
-### [ ] Engine 5. Validation Layer
-
-언제:
-
-- `Engine 4` 바로 다음, `Phase D`와 강하게 연결
-
-왜 이 시점인가:
-
-- validation은 후처리 부가기능이 아니라
-  결과를 다음 단계로 넘길지 판단하는 관문이기 때문
-
-핵심 구현:
-
-- `modules/validation/*` 연결
-- 품질 검증
-- 매핑 검증
-- 전달 가능 여부 판단
-- WARN / FAIL reason 생성
-- `pipeline_run_steps`에 단계별 판정 기록
-
-완료 기준:
-
-- Run Detail에 표시되는 WARN/FAIL 이유와 근거가 실제 validation 결과에서 옴
-
-### [ ] Engine 6. Result Asset / Payload Assembly
-
-언제:
-
-- `Engine 5` 다음
-
-왜 이 시점인가:
-
-- Builder는 검증 끝난 payload만 읽어야 하기 때문
-
-핵심 구현:
-
-- validation 통과 결과 조합
-- Builder 입력용 payload 생성
-- 보고서별 payload 분기
-- artifact / report 메타 연결
-
-완료 기준:
-
-- Builder가 raw나 KPI 엔진이 아니라 payload만 읽게 됨
-
-### [ ] Engine 7. Intelligence / RADAR
-
-언제:
-
-- `Engine 1~6` 안정화 이후
-
-왜 뒤인가:
-
-- RADAR는 KPI 재계산기가 아니라
-  검증 승인된 결과 자산 위에서 신호를 잡는 레이어이기 때문
-
-핵심 구현:
-
-- signal detection
-- issue prioritization
-- decision option 템플릿화
-
-완료 기준:
-
-- validation 통과 결과를 바탕으로 추가 인사이트를 생성할 수 있음
-
-### [ ] Engine 8. Builder
-
-언제:
-
-- `Engine 6` 이후, `Reports` 완성 직전/직후
-
-왜 마지막인가:
-
-- Builder는 계산 금지
-- 이미 만들어진 payload를 읽어 최종 표현만 담당하기 때문
-
-핵심 구현:
-
-- HTML/PDF 보고서 렌더
-- 최종 전달물 생성
-- Reports 페이지 연결
-
-완료 기준:
-
-- Reports 화면이 실제 Builder 결과물을 열 수 있음
-
-### [ ] Engine 9. Python Worker Runtime
-
-언제:
-
-- `Engine 1~6`과 병행해서 조기 시작
-
-왜 조기 시작인가:
-
-- 입력, 검증, 정규화, KPI, validation, payload 생성을 결국 worker가 묶어서 실행해야 하기 때문
-
-핵심 구현:
-
-- `workers/run_worker.py`
-- `workers/services/run_executor.py`
-- `workers/services/status_updater.py`
-- 필요 라이브러리 설치
-- Supabase polling
-- `pending -> running -> completed/failed`
-- 중간 step 상태 저장
-
-완료 기준:
-
-- 웹에서 run을 만들면 Python worker가 실제 엔진 순서를 실행함
-
-## 16-4. Python 라이브러리 설치 시점
+## 16-1. Python 라이브러리 설치 시점
 
 Python 관련 라이브러리는
 `마지막에 한 번에`가 아니라
-`Engine 1` 착수 시점부터 같이 들어가야 한다.
+`Phase 3` 착수 시점부터 같이 들어가야 한다.
 
 이유:
 
@@ -1171,13 +1093,13 @@ Python 관련 라이브러리는
 
 권장 시점:
 
-1. `Engine 1` 시작할 때 Python 가상환경/패키지 기준 확정
-2. `Engine 2` 들어가기 전에 KPI/데이터 처리 관련 패키지 설치
-3. `Engine 5` 직전에 보고서 렌더 관련 패키지 설치 또는 정리
+1. `Phase 3` 시작할 때 Python 가상환경/패키지 기준 확정
+2. `Phase 4` 들어가기 전에 KPI/데이터 처리 관련 패키지 설치
+3. `Phase 9` 직전에 보고서 렌더 관련 패키지 설치 또는 정리
 
 즉,
 `화면은 가볍게 먼저 만들 수 있어도`
-`Python 의존성은 초반부터 같이 관리`
+`Python 의존성은 백엔드 구현 초반부터 같이 관리`
 하는 것이 맞다.
 
 ## 17. 작업 단위 분해
@@ -1201,7 +1123,7 @@ Python 관련 라이브러리는
 - Supabase 클라이언트 기본 구조
 - API 래퍼 기본 구조
 
-### 작업 묶음 3. 백엔드 엔진 설계 우선
+### 작업 묶음 3. 백엔드 구현 Phase 우선
 
 - input intake 데이터 계약
 - pre-validation 결과 구조
@@ -1227,7 +1149,7 @@ Python 관련 라이브러리는
 - intake 설명 UI
 - 기간 차이 안내 UI
 
-### 작업 묶음 6. Pipeline + 엔진 접수
+### 작업 묶음 6. Pipeline + 백엔드 접수
 
 - 모드 선택 UI
 - run 생성
@@ -1314,7 +1236,7 @@ Python 관련 라이브러리는
 
 가장 바로 이어서 해야 할 일은 아래다.
 
-1. `Engine 1~3` 기준 백엔드 데이터 계약 먼저 고정
+1. `Phase 1~3` 기준 백엔드 데이터 계약 먼저 고정
 2. input intake / pre-validation / normalization 경계 정의
 3. KPI engine 입력 구조와 result asset 초안 정의
 4. validation 출력 구조와 run step 상태 모델 정의
