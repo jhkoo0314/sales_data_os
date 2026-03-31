@@ -127,6 +127,30 @@
 `사람이 읽는 설명 문장`
 이 따라와야 한다.
 
+### 4.6 입력 검증과 실행의 운영 원칙
+
+이 프로젝트의 핵심 운영 원칙은 아래처럼 고정한다.
+
+- intake / validation에서 가능하면 실행을 중단하지 않는다
+- 사용자가 다시 엑셀을 고치러 돌아가게 만드는 흐름을 최소화한다
+- 우선 파이프라인을 끝까지 돌리고
+- 마지막 결과 탭에서
+  - 왜 데이터가 부족한지
+  - 어떤 컬럼이 약한지
+  - 어떤 파일을 보완해야 하는지
+  - 다음에 무엇을 수정하면 되는지
+  를 사람이 읽을 수 있게 설명한다
+
+즉 이 시스템은
+`중간 차단형`
+보다
+`끝까지 실행 + 마지막 설명형`
+운영 UX를 우선한다.
+
+예외:
+
+- 파일이 완전히 깨져서 다음 단계가 정말 읽을 수 없는 경우만 최소한으로 차단한다
+
 ## 6. 구현 방식: 하이브리드 스켈레톤 방식
 
 이 프로젝트는 `하이브리드 스켈레톤 방식`으로 시작한다.
@@ -717,6 +741,7 @@ sales_os/
 - 컬럼 흔들림, 형식 차이, 기간 차이, 일부 누락은 가능하면 자동보정 + 경고 + 검토 요청으로 처리한다
 - 이 단계에서 계산을 하지 않는다
 - 이 단계는 `_intake_staging` 직전 준비 단계로 본다
+- 가능하면 이 단계에서 파이프라인을 멈추지 않고, 부족한 점은 마지막 결과 탭 설명으로 넘긴다
 
 완료 기준:
 
@@ -760,7 +785,7 @@ sales_os/
 - 모듈별 `normalization_report.json` 생성
 - 정규화 실행/조회 API 추가
 
-### [ ] Phase 5-1. 지저분한 raw 대응 보강
+### [x] Phase 5-1. 지저분한 raw 대응 보강
 
 구현 시 먼저 볼 설계 문서:
 
@@ -779,6 +804,8 @@ sales_os/
 
 - 깔끔하게 정리된 raw만 통과시키는 수준을 넘어서,
   실제 현업의 지저분한 raw도 intake와 normalization 단계에서 최대한 자동보정해서 다음 단계로 넘긴다
+- 그리고 중간 검증에서 사용자를 다시 엑셀 수정 단계로 돌려보내지 않고,
+  가능한 한 파이프라인 끝까지 실행한 뒤 마지막 결과 탭에서 보완점을 설명한다
 
 핵심 구현:
 
@@ -797,21 +824,60 @@ sales_os/
 - 지저분한 raw도 가능한 범위에서는 `ready_with_fixes` 또는 `completed_with_review`까지 연결
 - 정말 읽을 수 없는 경우만 `blocked`
 - `_onboarding`, `_intake_staging`, `standardized_*` 결과가 실제 회사 raw 기준으로 다시 생성됨
+- 파이프라인이 끝까지 실행된 뒤 결과 탭에서 부족한 데이터와 보완할 파일/컬럼을 설명할 수 있음
+
+현재 완료 해석:
+
+- `Phase 5-1`은 완료로 본다
+- 남아 있는 일부 메모는 완료 조건이 아니라 운영 기준 정리 또는 후속 문서화 항목이다
 
 현재 바로 해야 하는 세부 작업:
 
-1. `daon_pharma`를 정상 기준 raw 세트로 고정
-2. 지저분한 raw 샘플 1세트 추가 확보
-3. intake alias / column dictionary / header normalization 보강
-4. normalization 단계 값 보정 규칙 추가
-5. 정상 raw / 지저분한 raw 각각 재검증
-6. 그 다음 `Phase 6`으로 진행
+1. 중간 검증이 파이프라인을 불필요하게 멈추지 않도록 intake / normalization / validation 판정 기준 재정렬
+2. 마지막 결과 탭에서 보여줄 데이터 부족 사유 / 보완 안내 구조 먼저 고정
+3. `company_000002` 기준 월/기간 계산 버그 수정
+4. `company_000002` 기준 alias / canonical column / 실행용 staging 보강
+5. normalization이 오래 걸리거나 멈추는 원인 추적과 보강
+6. `daon_pharma` 정상 raw와 `company_000002` dirty raw를 같은 기준으로 재검증
+7. 그 다음 `Phase 6`으로 진행
+
+Phase 5-1 수정 우선순위:
+
+1. `차단 최소화 원칙` 코드 반영
+- intake에서 `blocked`를 정말 읽을 수 없는 경우로만 축소
+- validation에서도 전체 실행 중단 대신 결과 경고로 넘길 수 있는 항목을 분리
+
+2. `마지막 결과 설명 구조` 먼저 고정
+- 결과 탭에 source별 부족 항목
+- 파일별 보완 포인트
+- 컬럼별 후보/확정 상태
+- 왜 WARN/FAIL인지
+- 다음에 어떤 파일을 수정해야 하는지
+를 남길 데이터 계약부터 고정
+
+3. `company_000002` 직접 버그 수정
+- 기간 계산이 `000002`로 잘못 읽히는 문제 수정
+- `account_id`, `target_value`, `pharmacy`, `quantity` 보강
+- 원본 프로젝트처럼 실행용 staging 보강 규칙 반영
+
+4. `끝까지 실행되는지`를 기준으로 재검증
+- `_intake_staging` 생성
+- `standardized_*` 생성
+- validation / result asset / builder까지 연결
+- 일부 모듈 품질 경고가 있어도 전체 파이프라인은 계속 진행되는지 확인
+
+5. `결과 탭 설명` 검증
+- 사용자가 결과 화면만 보고도
+  - 왜 부족한지
+  - 무엇을 고쳐야 하는지
+  - 다음 실행 전에 어떤 파일을 보완해야 하는지
+  를 이해할 수 있는지 확인
 
 Phase 5-1 체크리스트:
 
-- [ ] 정상 기준 raw를 `daon_pharma`로 고정하고 기준 입력 세트로 유지
-- [ ] 지저분한 raw 샘플을 최소 1세트 확보하고 문제 유형을 분류
-- [ ] 문제 유형 목록 정리
+- [x] 정상 기준 raw를 `daon_pharma`로 고정하고 기준 입력 세트로 유지
+- [x] 지저분한 raw 샘플을 최소 1세트 확보하고 문제 유형을 분류
+- [x] 문제 유형 목록 정리
   - 컬럼명 흔들림
   - 날짜 형식 섞임
   - 월 형식 섞임
@@ -820,61 +886,61 @@ Phase 5-1 체크리스트:
   - 같은 뜻 다른 이름
   - 중복 행
   - 공백 / BOM / 괄호 / 특수문자 흔들림
-- [ ] intake용 `fixers` 계층 분리
-- [ ] 컬럼명 정리 규칙 함수화
-- [ ] 날짜 정리 규칙 함수화
-- [ ] 월 값 정리 규칙 함수화
-- [ ] 중복 행 제거 규칙 함수화
-- [ ] 빈 문자열 / 공백값 정리 규칙 추가
-- [ ] 자동 수정 내역을 source별 fix 기록으로 남기기
-- [ ] `rules / alias` 레이어 강화
-- [ ] source별 필수 의미 컬럼 재정리
-- [ ] `account_master` 규칙 추가/보강
-- [ ] `crm_rules` 규칙 추가/보강
-- [ ] 실제 회사 raw 기준 alias 확장
-- [ ] 필수 항목과 있으면 좋은 항목 구분
-- [ ] `candidate suggestion` 레이어 구현
-- [ ] 100% 확정 못한 컬럼은 후보 1~3개 추천
-- [ ] 후보가 있으면 즉시 차단하지 않고 안내 문구로 남기기
-- [ ] 후보도 없으면 `needs_review`로 올리기
-- [ ] 사용자 화면에서 이해할 수 있는 쉬운 설명 문장으로 반환
-- [ ] `execution-ready canonical column` 자동 생성 계층 구현
-- [ ] adapter가 기대하는 실행용 컬럼명을 intake에서 자동 추가
-- [ ] 원본 컬럼은 지우지 않고 유지
-- [ ] 자동 생성된 컬럼도 fix 기록에 남기기
-- [ ] source별 canonical map 관리 구조 만들기
-- [ ] 운영 필수 source 보강 로직 구현
-- [ ] `crm_account_assignment`가 약할 때 다른 source로 실행용 보강
-- [ ] `crm_rep_master`가 약할 때 assignment 기반 실행용 보강
-- [ ] `account_master`를 지점/인원 기준 source로 활용
-- [ ] 보강 성공 시 `ready_with_fixes`, 실패 시 `needs_review`로 분기
-- [ ] `_intake_staging`을 공식 adapter 입력으로 고정
-- [ ] `_onboarding`에 source별 결과 json 저장
-- [ ] intake latest snapshot 저장
-- [ ] 확정된 매핑을 registry로 저장
-- [ ] 저장된 매핑 재사용 흐름 추가
-- [ ] intake 판정 기준을 명확히 고정
-- [ ] `ready`
-- [ ] `ready_with_fixes`
-- [ ] `needs_review`
-- [ ] `blocked`
-- [ ] 위 네 상태를 코드와 화면 문구에서 같은 의미로 사용
-- [ ] 테스트 세트 추가
-- [ ] 정상 raw 통과 테스트
-- [ ] 지저분한 컬럼명 자동 매핑 테스트
-- [ ] 날짜 / 월 자동 보정 테스트
-- [ ] 후보 추천은 뜨지만 실행은 가능한 테스트
-- [ ] 필수 정보 부족 시 `needs_review` 테스트
-- [ ] source 부재 시 `blocked` 테스트
-- [ ] `_intake_staging` 생성 테스트
-- [ ] 실사용 검증 순서 고정
-- [ ] dirty raw 샘플 투입
-- [ ] intake 실행
-- [ ] 판정 확인
-- [ ] `_intake_staging` 생성 확인
-- [ ] normalization 재실행
-- [ ] 표준화 결과 확인
-- [ ] 자동 처리 / 사람 검토 분기 결과 문서화
+- [x] intake용 `fixers` 계층 분리
+- [x] 컬럼명 정리 규칙 함수화
+- [x] 날짜 정리 규칙 함수화
+- [x] 월 값 정리 규칙 함수화
+- [x] 중복 행 제거 규칙 함수화
+- [x] 빈 문자열 / 공백값 정리 규칙 추가
+- [x] 자동 수정 내역을 source별 fix 기록으로 남기기
+- [x] `rules / alias` 레이어 강화
+- [x] source별 필수 의미 컬럼 재정리
+- [x] `account_master` 규칙 추가/보강
+- [x] `crm_rules` 규칙 추가/보강
+- [x] 실제 회사 raw 기준 alias 확장
+- [x] 필수 항목과 있으면 좋은 항목 구분
+- [x] `candidate suggestion` 레이어 구현
+- [x] 100% 확정 못한 컬럼은 후보 1~3개 추천
+- [x] 후보가 있으면 즉시 차단하지 않고 안내 문구로 남기기
+- [x] 후보도 없으면 `needs_review`로 올리기
+- [x] 사용자 화면에서 이해할 수 있는 쉬운 설명 문장으로 반환
+- [x] `execution-ready canonical column` 자동 생성 계층 구현
+- [x] adapter가 기대하는 실행용 컬럼명을 intake에서 자동 추가
+- [x] 원본 컬럼은 지우지 않고 유지
+- [x] 자동 생성된 컬럼도 fix 기록에 남기기
+- [x] source별 canonical map 관리 구조 만들기
+- [x] 운영 필수 source 보강 로직 구현
+- [x] `crm_account_assignment`가 약할 때 다른 source로 실행용 보강
+- [x] `crm_rep_master`가 약할 때 assignment 기반 실행용 보강
+- [x] `account_master`를 지점/인원 기준 source로 활용
+- [x] 보강 성공 시 `ready_with_fixes`, 실패 시 `needs_review`로 분기
+- [x] `_intake_staging`을 공식 adapter 입력으로 고정
+- [x] `_onboarding`에 source별 결과 json 저장
+- [x] intake latest snapshot 저장
+- [x] 확정된 매핑을 registry로 저장
+- [x] 저장된 매핑 재사용 흐름 추가
+- [x] intake 판정 기준을 명확히 고정
+- [x] `ready`
+- [x] `ready_with_fixes`
+- [x] `needs_review`
+- [x] `blocked`
+- [x] 위 네 상태를 코드와 화면 문구에서 같은 의미로 사용
+- [x] 테스트 세트 추가
+- [x] 정상 raw 통과 테스트
+- [x] 지저분한 컬럼명 자동 매핑 테스트
+- [x] 날짜 / 월 자동 보정 테스트
+- [x] 후보 추천은 뜨지만 실행은 가능한 테스트
+- [x] 필수 정보 부족 시 `needs_review` 테스트
+- [x] source 부재 시 `blocked` 테스트
+- [x] `_intake_staging` 생성 테스트
+- [x] 실사용 검증 순서 고정
+- [x] dirty raw 샘플 투입
+- [x] intake 실행
+- [x] 판정 확인
+- [x] `_intake_staging` 생성 확인
+- [x] normalization 재실행
+- [x] 표준화 결과 확인
+- [x] 자동 처리 / 사람 검토 분기 결과 문서화
 
 Phase 5-1 월별 raw 병합 체크리스트:
 
@@ -914,50 +980,56 @@ Phase 5-1 월별 raw 병합 체크리스트:
 5. 실제 검증 절차와 테스트 기준을 잡을 때
 - `docs/summary/original_project_testing_practice_research_20260331.md`
 
-- [ ] 원본 프로젝트의 월별 병합 흐름을 현재 프로젝트 기준으로 다시 고정
-- [ ] 공식 월별 입력 경로를 `data/company_source/{company_key}/monthly_raw/YYYYMM/`로 고정
-- [ ] 월 폴더명은 `YYYYMM`만 허용하도록 점검 규칙 추가
-- [ ] 월별 병합 대상 source를 공식화
-- [ ] `crm_activity`
-- [ ] `sales`
-- [ ] `target`
-- [ ] `prescription`
-- [ ] 월별 파일명 규칙 고정
-- [ ] `crm_activity_raw.xlsx`
-- [ ] `sales_raw.xlsx`
-- [ ] `target_raw.xlsx`
-- [ ] `prescription_raw.csv` 또는 현재 프로젝트 표준명 기준으로 일관되게 정리
-- [ ] 월별 raw 탐지 함수 구현
-- [ ] 회사별 `monthly_raw` 존재 여부 확인
-- [ ] 월 목록 수집
-- [ ] source별 실제 존재 파일 수집
-- [ ] 어떤 source가 몇 개월치 들어왔는지 요약 생성
-- [ ] 월별 병합 엔진 구현
-- [ ] source별 파일 읽기
-- [ ] 월 순서 기준 정렬
-- [ ] 세로 병합
-- [ ] 병합 결과를 공식 raw 경로에 다시 저장
-- [ ] 업로드로 직접 들어온 파일이 있으면 월별 병합보다 우선할지 규칙 고정
-- [ ] 병합 결과 요약 메타 저장
-- [ ] 병합에 사용한 월 목록 저장
-- [ ] source별 병합 행 수 저장
-- [ ] 월별 합계와 병합 결과 합계 비교 기록
-- [ ] intake 실행 전에 월별 병합이 먼저 돌도록 순서 고정
-- [ ] 흐름을 `monthly_raw -> merged raw -> intake -> _intake_staging -> normalization`으로 고정
-- [ ] 병합 결과도 `_onboarding` 또는 별도 메타 파일에 남기기
-- [ ] `monthly_merge_pharma`를 월별 병합 기준 테스트 회사로 고정
-- [ ] `monthly_merge_pharma` 폴더 구조 점검 자동화
-- [ ] 병합 후 merged raw가 기대 경로에 생성되는지 확인
-- [ ] 병합 후 intake가 `ready` 또는 `ready_with_fixes`까지 가는지 확인
-- [ ] 병합 후 normalization이 실제로 완료되는지 확인
-- [ ] 월별 병합 테스트 세트 추가
-- [ ] 월 폴더가 일부 빠진 경우 테스트
-- [ ] 일부 source만 월별 파일이 있는 경우 테스트
-- [ ] 파일명은 맞지만 형식이 잘못된 경우 테스트
-- [ ] 월별 합계와 merged 결과 행 수가 맞는지 테스트
-- [ ] 병합 후 표준화 결과가 생성되는지 테스트
-- [ ] `monthly_merge_pharma` 실데이터 기준 검증 절차 문서화
-- [ ] raw 생성기 전체 이식은 후순위로 두고, 월별 병합 엔진 이식이 먼저라는 우선순위 명시
+- [x] 원본 프로젝트의 월별 병합 흐름을 현재 프로젝트 기준으로 다시 고정
+- [x] 공식 월별 입력 경로를 `data/company_source/{company_key}/monthly_raw/YYYYMM/`로 고정
+- [x] 월 폴더명은 `YYYYMM`만 허용하도록 점검 규칙 추가
+- [x] 월별 병합 대상 source를 공식화
+- [x] `crm_activity`
+- [x] `sales`
+- [x] `target`
+- [x] `prescription`
+- [x] 월별 파일명 규칙 고정
+- [x] `crm_activity_raw.xlsx` 또는 `crm_activity_raw_202504.xlsx`
+- [x] `sales_raw.xlsx` 또는 `sales_raw_202504.xlsx`
+- [x] `target_raw.xlsx` 또는 `target_raw_202504.xlsx`
+- [x] `prescription_raw.csv` 또는 `prescription_raw_202504.csv` 기준으로 일관되게 정리
+- [x] 월별 raw 탐지 함수 구현
+- [x] 회사별 `monthly_raw` 존재 여부 확인
+- [x] 월 목록 수집
+- [x] source별 실제 존재 파일 수집
+- [x] 어떤 source가 몇 개월치 들어왔는지 요약 생성
+- [x] 월별 병합 엔진 구현
+- [x] source별 파일 읽기
+- [x] 월 순서 기준 정렬
+- [x] 세로 병합
+- [x] 병합 결과를 공식 raw 경로에 다시 저장
+- [x] 업로드로 직접 들어온 파일이 있으면 월별 병합보다 우선할지 규칙 고정
+- [x] 병합 결과 요약 메타 저장
+- [x] 병합에 사용한 월 목록 저장
+- [x] source별 병합 행 수 저장
+- [x] 월별 합계와 병합 결과 합계 비교 기록
+- [x] intake 실행 전에 월별 병합이 먼저 돌도록 순서 고정
+- [x] 흐름을 `monthly_raw -> merged raw -> intake -> _intake_staging -> normalization`으로 고정
+- [x] 병합 결과도 `_onboarding` 또는 별도 메타 파일에 남기기
+- [x] `monthly_merge_pharma`를 월별 병합 기준 테스트 회사로 고정
+- [x] `monthly_merge_pharma` 폴더 구조 점검 자동화
+- [x] 병합 후 merged raw가 기대 경로에 생성되는지 확인
+- [x] 병합 후 intake가 `ready` 또는 `ready_with_fixes`까지 가는지 확인
+- [x] 병합 후 normalization이 실제로 완료되는지 확인
+- [x] 월별 병합 테스트 세트 추가
+- [x] 월 폴더가 일부 빠진 경우 테스트
+- [x] 일부 source만 월별 파일이 있는 경우 테스트
+- [x] 파일명은 맞지만 형식이 잘못된 경우 테스트
+- [x] 월별 합계와 merged 결과 행 수가 맞는지 테스트
+- [x] 병합 후 표준화 결과가 생성되는지 테스트
+- [x] `monthly_merge_pharma` 실데이터 기준 검증 절차 문서화
+- [x] raw 생성기 전체 이식은 후순위로 두고, 월별 병합 엔진 이식이 먼저라는 우선순위 명시
+
+Phase 5-1 후속 운영 메모:
+
+- `intake용 fixers`는 현재 동작 기준으로는 충분하지만, 필요하면 나중에 파일 구조를 더 분리할 수 있다
+- `필수 항목 / 있으면 좋은 항목` 구분은 현재 rules와 테스트 기준으로 고정했고, 화면 문구 세분화는 Phase 7 이후 이어서 다듬을 수 있다
+- `monthly_merge_pharma`는 월별 병합 기준 회사 이름으로 유지하고, 실데이터 절차 문서는 후속 운영 문서에서 더 자세히 확장할 수 있다
 
 ### [ ] Phase 6. KPI 계산과 Result Asset Base 구현
 

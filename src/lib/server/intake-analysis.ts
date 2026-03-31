@@ -2,10 +2,16 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 
 import { SOURCE_DEFINITIONS, SourceKey } from "@/lib/source-registry";
+import {
+  findMappedHeaderFromRegistry,
+  readColumnMappingRegistry,
+  type SourceMappingRegistryEntry,
+  upsertSourceMappingRegistry
+} from "@/lib/server/mapping-registry";
 import { mergeMonthlyRawSources } from "@/lib/server/monthly-merge";
 import { COLUMN_ALIASES, PREFERRED_SHEET_NAMES, REQUIRED_COLUMNS } from "@/lib/server/source-schema";
 import { assertValidCompanyKey, normalizeMonthToken } from "@/lib/server/source-storage";
-import { isSupportedTabularFile, readTabularHeaders } from "@/lib/server/tabular-file";
+import { isSupportedTabularFile, parseTabularFile, readTabularHeaders } from "@/lib/server/tabular-file";
 
 const COMPANY_SOURCE_ROOT = path.join(process.cwd(), "data", "company_source");
 
@@ -24,6 +30,7 @@ type IntakePackage = {
   status: "saved" | "missing" | "review";
   message: string;
   files: string[];
+  fixes: string[];
 };
 
 type ColumnReview = {
@@ -31,6 +38,7 @@ type ColumnReview = {
   status: "matched" | "candidate" | "missing" | "not_checked";
   matchedHeader: string | null;
   candidateHeaders: string[];
+  matchedBy: "alias" | "registry" | null;
 };
 
 type PeriodCoverage = {
@@ -198,15 +206,81 @@ async function readCsvHeaders(filePath: string): Promise<string[]> {
 }
 
 function detectMonthFromFilePath(filePath: string): string | null {
-  const tokens = filePath.match(/\d{6}/g) ?? [];
-  for (const token of tokens) {
-    const normalized = normalizeMonthToken(token);
+  const pathParts = filePath.split(path.sep);
+  for (const part of pathParts) {
+    if (!/^\d{6}$/.test(part.trim())) {
+      continue;
+    }
+
+    const normalized = normalizeMonthToken(part.trim());
     if (normalized) {
       return normalized;
     }
   }
 
   return null;
+}
+
+function normalizeDateToMonthToken(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const directMonth = normalizeMonthToken(trimmed);
+  if (directMonth) {
+    return directMonth;
+  }
+
+  const digits = trimmed.replace(/\D/g, "");
+  if (digits.length >= 8) {
+    return normalizeMonthToken(digits.slice(0, 6));
+  }
+
+  return null;
+}
+
+function resolveMatchedHeader(
+  headers: string[],
+  semanticColumn: string,
+  sourceRegistry?: SourceMappingRegistryEntry
+): { matchedHeader: string | null; matchedBy: "alias" | "registry" | null } {
+  const aliases = [semanticColumn, ...(COLUMN_ALIASES[semanticColumn] ?? [])];
+  const aliasMatchedHeader =
+    headers.find((header) =>
+      aliases.some((alias) => normalizeHeaderName(header) === normalizeHeaderName(alias))
+    ) ?? null;
+
+  if (aliasMatchedHeader) {
+    return {
+      matchedHeader: aliasMatchedHeader,
+      matchedBy: "alias"
+    };
+  }
+
+  const registryHeader = findMappedHeaderFromRegistry(headers, semanticColumn, sourceRegistry);
+  return {
+    matchedHeader: registryHeader,
+    matchedBy: registryHeader ? "registry" : null
+  };
+}
+
+function extractCoverageMonthsFromRows(
+  sourceKey: SourceKey,
+  headers: string[],
+  rows: Record<string, string>[],
+  sourceRegistry?: SourceMappingRegistryEntry
+): string[] {
+  const semanticColumn =
+    sourceKey === "crm_activity" ? "activity_date" : sourceKey === "prescription" ? "ship_date" : "period";
+  const { matchedHeader } = resolveMatchedHeader(headers, semanticColumn, sourceRegistry);
+  if (!matchedHeader) {
+    return [];
+  }
+
+  return rows
+    .map((row) => normalizeDateToMonthToken(row[matchedHeader] ?? ""))
+    .filter((value): value is string => Boolean(value));
 }
 
 function monthRangeSummary(months: string[]): { start: string | null; end: string | null; count: number } {
@@ -262,29 +336,46 @@ function candidateHeadersForColumn(headers: string[], expected: string): string[
 
   return headers.filter((header) => {
     const normalizedHeader = normalizeHeaderName(header);
-    return aliases.some((alias) => normalizedHeader.includes(alias) || alias.includes(normalizedHeader));
+    if (
+      (expected === "account" || expected === "account_id" || expected === "account_name") &&
+      normalizedHeader.includes("capacity")
+    ) {
+      return false;
+    }
+
+    if (expected === "target_value" && normalizedHeader.includes("월")) {
+      return false;
+    }
+
+    if (expected === "pharmacy" && ["addr", "latitude", "longitude", "region"].some((token) => normalizedHeader.includes(token))) {
+      return false;
+    }
+
+    return aliases.some((alias) => normalizedHeader.includes(alias));
   });
 }
 
-function buildColumnReviews(sourceKey: SourceKey, headers: string[], hasUnsupportedStructuredFile: boolean): ColumnReview[] {
+function buildColumnReviews(
+  sourceKey: SourceKey,
+  headers: string[],
+  hasUnsupportedStructuredFile: boolean,
+  sourceRegistry?: SourceMappingRegistryEntry
+): ColumnReview[] {
   const requiredColumns = REQUIRED_COLUMNS[sourceKey];
   if (requiredColumns.length === 0) {
     return [];
   }
 
   return requiredColumns.map((requiredColumn) => {
-    const aliases = COLUMN_ALIASES[requiredColumn] ?? [requiredColumn];
-    const matchedHeader =
-      headers.find((header) =>
-        aliases.some((alias) => normalizeHeaderName(header) === normalizeHeaderName(alias))
-      ) ?? null;
+    const { matchedHeader, matchedBy } = resolveMatchedHeader(headers, requiredColumn, sourceRegistry);
 
     if (matchedHeader) {
       return {
         requiredColumn,
         status: "matched",
         matchedHeader,
-        candidateHeaders: []
+        candidateHeaders: [],
+        matchedBy
       };
     }
 
@@ -294,7 +385,8 @@ function buildColumnReviews(sourceKey: SourceKey, headers: string[], hasUnsuppor
         requiredColumn,
         status: "candidate",
         matchedHeader: null,
-        candidateHeaders
+        candidateHeaders,
+        matchedBy: null
       };
     }
 
@@ -302,12 +394,17 @@ function buildColumnReviews(sourceKey: SourceKey, headers: string[], hasUnsuppor
       requiredColumn,
       status: hasUnsupportedStructuredFile && headers.length === 0 ? "not_checked" : "missing",
       matchedHeader: null,
-      candidateHeaders: []
+      candidateHeaders: [],
+      matchedBy: null
     };
   });
 }
 
-async function inspectSource(companyKey: string, sourceKey: SourceKey): Promise<SourceInspection> {
+async function inspectSource(
+  companyKey: string,
+  sourceKey: SourceKey,
+  sourceRegistry?: SourceMappingRegistryEntry
+): Promise<SourceInspection> {
   const definition = SOURCE_DEFINITIONS.find((item) => item.sourceKey === sourceKey);
   if (!definition) {
     throw new Error(`Unknown source key: ${sourceKey}`);
@@ -324,14 +421,18 @@ async function inspectSource(companyKey: string, sourceKey: SourceKey): Promise<
   const monthTokens: string[] = [];
 
   for (const filePath of files) {
-    const monthToken = detectMonthFromFilePath(filePath);
-    if (monthToken) {
-      monthTokens.push(monthToken);
-    }
-
     if (isSupportedTabularFile(filePath)) {
-      const headers = await readTabularHeaders(filePath, PREFERRED_SHEET_NAMES[sourceKey]);
+      const { headers, rows } = await parseTabularFile(filePath, PREFERRED_SHEET_NAMES[sourceKey]);
       csvHeaders.push(...headers);
+      const rowMonths = extractCoverageMonthsFromRows(sourceKey, headers, rows, sourceRegistry);
+      if (rowMonths.length > 0) {
+        monthTokens.push(...rowMonths);
+      } else {
+        const monthToken = detectMonthFromFilePath(filePath);
+        if (monthToken) {
+          monthTokens.push(monthToken);
+        }
+      }
       continue;
     }
 
@@ -346,7 +447,7 @@ async function inspectSource(companyKey: string, sourceKey: SourceKey): Promise<
     sourceKey,
     files,
     csvHeaders,
-    columnReviews: buildColumnReviews(sourceKey, csvHeaders, hasUnsupportedStructuredFile),
+    columnReviews: buildColumnReviews(sourceKey, csvHeaders, hasUnsupportedStructuredFile, sourceRegistry),
     hasUnsupportedStructuredFile,
     periodCoverage: {
       sourceKey,
@@ -382,12 +483,47 @@ function packageMessage(required: boolean, inspection: SourceInspection): string
   return "입력 파일이 저장되어 있고 기본 점검 대상에 포함됩니다.";
 }
 
+function canHydrateCrmAccounts(inspections: SourceInspection[]): boolean {
+  return inspections.some(
+    (inspection) =>
+      (
+        inspection.sourceKey === "sales" ||
+        inspection.sourceKey === "target" ||
+        inspection.sourceKey === "crm_activity" ||
+        inspection.sourceKey === "account_master" ||
+        inspection.sourceKey === "crm_account_assignment"
+      ) &&
+      inspection.files.length > 0
+  );
+}
+
+function isAutoFixableMissingReview(
+  sourceKey: SourceKey,
+  requiredColumn: string,
+  supportsCrmHydration: boolean
+): boolean {
+  if (!supportsCrmHydration) {
+    return false;
+  }
+
+  if (sourceKey === "account_master" || sourceKey === "crm_account_assignment") {
+    return requiredColumn === "account_id" || requiredColumn === "account_name";
+  }
+
+  if (sourceKey === "crm_rep_master") {
+    return ["rep_id", "rep_name", "branch_id", "branch_name"].includes(requiredColumn);
+  }
+
+  return false;
+}
+
 export async function analyzeIntake(input: {
   companyKey: string;
   executionMode?: string | null;
 }): Promise<IntakeAnalysisResult> {
   assertValidCompanyKey(input.companyKey);
 
+  const mappingRegistry = await readColumnMappingRegistry(input.companyKey);
   const executionMode = input.executionMode ?? "integrated";
   const modeKey = resolveExecutionModeKey(executionMode);
   const requiredSources = requiredSourcesForMode(modeKey);
@@ -396,13 +532,20 @@ export async function analyzeIntake(input: {
   const fixes: string[] = [];
   const suggestions: string[] = [];
   const timingAlerts: string[] = [];
+  const sourceFixMap = new Map<SourceKey, string[]>();
+
+  const pushSourceFix = (sourceKey: SourceKey, message: string) => {
+    fixes.push(message);
+    sourceFixMap.set(sourceKey, [...(sourceFixMap.get(sourceKey) ?? []), message]);
+  };
 
   const monthlyMergeResult = await mergeMonthlyRawSources({ companyKey: input.companyKey });
   const mergedSources = monthlyMergeResult.source_summaries.filter((summary) => summary.status === "merged");
   const skippedSources = monthlyMergeResult.source_summaries.filter((summary) => summary.status === "skipped");
 
   mergedSources.forEach((summary) => {
-    fixes.push(
+    pushSourceFix(
+      summary.sourceKey,
       `${summary.sourceKey}는 월별 raw ${summary.monthCount}개월치를 병합해 ${summary.mergedTargetPath}로 다시 생성했습니다.`
     );
     findings.push({
@@ -421,16 +564,13 @@ export async function analyzeIntake(input: {
   });
 
   const inspections = await Promise.all(
-    SOURCE_DEFINITIONS.map((definition) => inspectSource(input.companyKey, definition.sourceKey))
+    SOURCE_DEFINITIONS.map((definition) =>
+      inspectSource(input.companyKey, definition.sourceKey, mappingRegistry.source_mappings[definition.sourceKey])
+    )
   );
   const requiredInspections = inspections.filter((inspection) => requiredSources.includes(inspection.sourceKey));
+  const supportsCrmHydration = canHydrateCrmAccounts(inspections);
   const periodCoverages = requiredInspections.map((inspection) => inspection.periodCoverage);
-  const packages: IntakePackage[] = inspections.map((inspection) => ({
-    sourceKey: inspection.sourceKey,
-    status: packageStatusForInspection(requiredSources.includes(inspection.sourceKey), inspection),
-    message: packageMessage(requiredSources.includes(inspection.sourceKey), inspection),
-    files: inspection.files.map((filePath) => path.relative(process.cwd(), filePath).split(path.sep).join("/"))
-  }));
 
   let blocked = false;
   let needsReview = false;
@@ -448,9 +588,23 @@ export async function analyzeIntake(input: {
     }
 
     for (const review of inspection.columnReviews) {
+      if (review.status === "matched" && review.matchedBy === "registry" && review.matchedHeader) {
+        autoFixSuggested = true;
+        pushSourceFix(
+          inspection.sourceKey,
+          `${inspection.sourceKey}의 ${review.requiredColumn}는 지난 실행에서 저장한 매핑 ${review.matchedHeader}를 다시 사용했습니다.`
+        );
+        findings.push({
+          level: "info",
+          sourceKey: inspection.sourceKey,
+          message: `${inspection.sourceKey}의 ${review.requiredColumn}는 저장된 매핑을 다시 사용해 바로 읽었습니다.`
+        });
+      }
+
       if (review.status === "candidate") {
         autoFixSuggested = true;
-        fixes.push(
+        pushSourceFix(
+          inspection.sourceKey,
           `${inspection.sourceKey}의 ${review.requiredColumn}는 후보 컬럼 ${review.candidateHeaders.join(", ")} 기준으로 매핑 보조가 필요합니다.`
         );
         findings.push({
@@ -461,6 +615,20 @@ export async function analyzeIntake(input: {
       }
 
       if (review.status === "missing") {
+        if (isAutoFixableMissingReview(inspection.sourceKey, review.requiredColumn, supportsCrmHydration)) {
+          autoFixSuggested = true;
+          pushSourceFix(
+            inspection.sourceKey,
+            `${inspection.sourceKey}의 ${review.requiredColumn}는 현재 파일만으로는 없지만, 다른 source를 이용한 실행용 보강 대상으로 처리합니다.`
+          );
+          findings.push({
+            level: "warn",
+            sourceKey: inspection.sourceKey,
+            message: `${inspection.sourceKey}의 ${review.requiredColumn}는 원본 파일에는 없지만 다른 source를 이용해 실행용 보강을 시도합니다.`
+          });
+          continue;
+        }
+
         needsReview = true;
         findings.push({
           level: "warn",
@@ -507,6 +675,13 @@ export async function analyzeIntake(input: {
 
   const analysisBasisSources = coverageWithMonths.map((coverage) => coverage.sourceKey);
   const readyForAdapter = !blocked && !needsReview;
+  const packages: IntakePackage[] = inspections.map((inspection) => ({
+    sourceKey: inspection.sourceKey,
+    status: packageStatusForInspection(requiredSources.includes(inspection.sourceKey), inspection),
+    message: packageMessage(requiredSources.includes(inspection.sourceKey), inspection),
+    files: inspection.files.map((filePath) => path.relative(process.cwd(), filePath).split(path.sep).join("/")),
+    fixes: sourceFixMap.get(inspection.sourceKey) ?? []
+  }));
 
   let status: IntakeStatus = "ready";
   if (blocked) {
@@ -556,6 +731,16 @@ export async function analyzeIntake(input: {
   await fs.writeFile(latestAnalysisPath(input.companyKey), JSON.stringify(result, null, 2), "utf8");
   await fs.writeFile(intakeHistoryPath(input.companyKey, generatedAt), JSON.stringify(result, null, 2), "utf8");
 
+  for (const inspection of inspections) {
+    await upsertSourceMappingRegistry({
+      companyKey: input.companyKey,
+      sourceKey: inspection.sourceKey,
+      matchedColumns: Object.fromEntries(
+        inspection.columnReviews.map((review) => [review.requiredColumn, review.status === "matched" ? review.matchedHeader : null])
+      )
+    });
+  }
+
   await Promise.all(
     inspections.map(async (inspection) => {
       const packagePayload: StoredIntakePackage = {
@@ -565,6 +750,7 @@ export async function analyzeIntake(input: {
         status: packageStatusForInspection(requiredSources.includes(inspection.sourceKey), inspection),
         message: packageMessage(requiredSources.includes(inspection.sourceKey), inspection),
         files: inspection.files.map((filePath) => path.relative(process.cwd(), filePath).split(path.sep).join("/")),
+        fixes: sourceFixMap.get(inspection.sourceKey) ?? [],
         required: requiredSources.includes(inspection.sourceKey),
         latest_uploaded_at:
           inspection.files.length > 0

@@ -5,6 +5,12 @@ import * as XLSX from "xlsx";
 
 import { SOURCE_DEFINITIONS, type SourceKey } from "@/lib/source-registry";
 import { readLatestIntakeResult } from "@/lib/server/intake-analysis";
+import {
+  findMappedHeaderFromRegistry,
+  readColumnMappingRegistry,
+  type SourceMappingRegistryEntry,
+  upsertSourceMappingRegistry
+} from "@/lib/server/mapping-registry";
 import { mergeMonthlyRawSources } from "@/lib/server/monthly-merge";
 import { assertValidCompanyKey, normalizeMonthToken } from "@/lib/server/source-storage";
 import {
@@ -19,6 +25,7 @@ import { isSpreadsheetFile, isSupportedTabularFile, parseTabularFile } from "@/l
 
 const COMPANY_SOURCE_ROOT = path.join(process.cwd(), "data", "company_source");
 const STANDARDIZED_ROOT = path.join(process.cwd(), "data", "standardized");
+const derivedSupportCache = new Map<string, Promise<DerivedSupportData>>();
 
 type NormalizationStatus = "completed" | "completed_with_review" | "blocked";
 
@@ -37,6 +44,29 @@ type SourceNormalizationResult = {
   mappedColumns: Record<string, string | null>;
   reviewColumns: string[];
   warnings: string[];
+  appliedFixes: string[];
+};
+
+type DerivedCrmRow = {
+  account_id: string;
+  account_name: string;
+  branch_id: string;
+  branch_name: string;
+  rep_id: string;
+  rep_name: string;
+};
+
+type DerivedRepRow = {
+  rep_id: string;
+  rep_name: string;
+  branch_id: string;
+  branch_name: string;
+};
+
+type DerivedSupportData = {
+  accountRows: DerivedCrmRow[];
+  repRows: DerivedRepRow[];
+  inputFiles: string[];
 };
 
 export type NormalizationResult = {
@@ -168,9 +198,13 @@ function normalizeHeaderName(value: string): string {
 }
 
 function extractMonthFromPath(filePath: string): string | null {
-  const tokens = filePath.match(/\d{6}/g) ?? [];
-  for (const token of tokens) {
-    const normalized = normalizeMonthToken(token);
+  const pathParts = filePath.split(path.sep);
+  for (const part of pathParts) {
+    if (!/^\d{6}$/.test(part.trim())) {
+      continue;
+    }
+
+    const normalized = normalizeMonthToken(part.trim());
     if (normalized) {
       return normalized;
     }
@@ -178,8 +212,185 @@ function extractMonthFromPath(filePath: string): string | null {
   return null;
 }
 
+function resolveMatchedHeader(headers: string[], semanticColumn: string): string | null {
+  const aliases = [semanticColumn, ...(COLUMN_ALIASES[semanticColumn] ?? [])];
+  return (
+    headers.find((header) =>
+      aliases.some((alias) => normalizeHeaderName(header) === normalizeHeaderName(alias))
+    ) ?? null
+  );
+}
+
+function cleanRawCellValue(value: string): string {
+  const normalized = value
+    .replace(/^\uFEFF/, "")
+    .replace(/\u00A0/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) {
+    return "";
+  }
+
+  const lowered = normalized.toLowerCase();
+  if (["null", "nan", "n/a", "na", "none", "-", "--"].includes(lowered)) {
+    return "";
+  }
+
+  return normalized;
+}
+
+async function collectDerivedSupportData(companyKey: string): Promise<DerivedSupportData> {
+  const supportSources: SourceKey[] = ["sales", "target", "crm_activity", "account_master", "crm_account_assignment"];
+  const accountRows: DerivedCrmRow[] = [];
+  const repRows: DerivedRepRow[] = [];
+  const inputFiles = new Set<string>();
+
+  for (const sourceKey of supportSources) {
+    const definition = SOURCE_DEFINITIONS.find((item) => item.sourceKey === sourceKey);
+    if (!definition) {
+      continue;
+    }
+
+    const sourceRoot = path.join(companyRoot(companyKey), definition.folder);
+    const files = (await listFilesRecursively(sourceRoot)).filter((filePath) => {
+      const basename = path.basename(filePath).toLowerCase();
+      return basename.includes(definition.sourceKey) || basename.includes(definition.filenameBase);
+    });
+
+    for (const filePath of files) {
+      if (!isSupportedTabularFile(filePath)) {
+        continue;
+      }
+
+      inputFiles.add(toPosixRelativePath(filePath));
+      const { headers, rows } = await parseTabularFile(filePath, PREFERRED_SHEET_NAMES[sourceKey]);
+      const accountIdHeader = resolveMatchedHeader(headers, "account_id");
+      const accountNameHeader = resolveMatchedHeader(headers, "account_name");
+      const branchIdHeader = resolveMatchedHeader(headers, "branch_id");
+      const branchNameHeader = resolveMatchedHeader(headers, "branch_name");
+      const repIdHeader = resolveMatchedHeader(headers, "rep_id");
+      const repNameHeader = resolveMatchedHeader(headers, "rep_name");
+      const repFallbackHeader = resolveMatchedHeader(headers, "rep");
+
+      rows.forEach((row) => {
+        const accountId = accountIdHeader ? cleanRawCellValue(row[accountIdHeader] ?? "") : "";
+        const accountName = accountNameHeader ? cleanRawCellValue(row[accountNameHeader] ?? "") : "";
+        const branchId = branchIdHeader ? cleanRawCellValue(row[branchIdHeader] ?? "") : "";
+        const branchName = branchNameHeader ? cleanRawCellValue(row[branchNameHeader] ?? "") : "";
+        const repId = repIdHeader ? cleanRawCellValue(row[repIdHeader] ?? "") : "";
+        const repName = cleanRawCellValue(
+          repNameHeader ? (row[repNameHeader] ?? "") : repFallbackHeader ? (row[repFallbackHeader] ?? "") : ""
+        );
+
+        if (accountId && accountName) {
+          accountRows.push({
+            account_id: accountId,
+            account_name: accountName,
+            branch_id: branchId,
+            branch_name: branchName,
+            rep_id: repId,
+            rep_name: repName
+          });
+        }
+
+        if (repId || repName) {
+          repRows.push({
+            rep_id: repId,
+            rep_name: repName,
+            branch_id: branchId,
+            branch_name: branchName
+          });
+        }
+      });
+    }
+  }
+
+  return {
+    accountRows,
+    repRows,
+    inputFiles: [...inputFiles]
+  };
+}
+
+function getDerivedSupportData(companyKey: string): Promise<DerivedSupportData> {
+  if (!derivedSupportCache.has(companyKey)) {
+    derivedSupportCache.set(companyKey, collectDerivedSupportData(companyKey));
+  }
+
+  return derivedSupportCache.get(companyKey)!;
+}
+
+async function buildDerivedAccountMasterRows(companyKey: string): Promise<StandardizedRow[]> {
+  const derivedRows = (await getDerivedSupportData(companyKey)).accountRows;
+  const deduped = new Map<string, StandardizedRow>();
+
+  derivedRows.forEach((row) => {
+    if (!deduped.has(row.account_id)) {
+      deduped.set(row.account_id, {
+        account_id: row.account_id,
+        account_name: row.account_name,
+        branch_id: row.branch_id,
+        branch_name: row.branch_name,
+        rep_id: row.rep_id,
+        rep_name: row.rep_name
+      });
+    }
+  });
+
+  return [...deduped.values()];
+}
+
+async function buildDerivedAccountAssignmentRows(companyKey: string): Promise<StandardizedRow[]> {
+  const derivedRows = (await getDerivedSupportData(companyKey)).accountRows;
+  const deduped = new Map<string, StandardizedRow>();
+
+  derivedRows.forEach((row) => {
+    const key = [row.account_id, row.rep_id, row.branch_id].join("::");
+    if (!row.account_id || !row.rep_id) {
+      return;
+    }
+
+    if (!deduped.has(key)) {
+      deduped.set(key, {
+        account_id: row.account_id,
+        account_name: row.account_name,
+        branch_id: row.branch_id,
+        branch_name: row.branch_name,
+        rep_id: row.rep_id,
+        rep_name: row.rep_name
+      });
+    }
+  });
+
+  return [...deduped.values()];
+}
+
+async function buildDerivedRepMasterRows(companyKey: string): Promise<StandardizedRow[]> {
+  const derivedRows = (await getDerivedSupportData(companyKey)).repRows;
+  const deduped = new Map<string, StandardizedRow>();
+
+  derivedRows.forEach((row) => {
+    const key = row.rep_id || row.rep_name;
+    if (!key) {
+      return;
+    }
+
+    if (!deduped.has(key)) {
+      deduped.set(key, {
+        rep_id: row.rep_id || key,
+        rep_name: row.rep_name || key,
+        branch_id: row.branch_id,
+        branch_name: row.branch_name
+      });
+    }
+  });
+
+  return [...deduped.values()];
+}
+
 function normalizeDateValue(value: string): string {
-  const trimmed = value.trim();
+  const trimmed = cleanRawCellValue(value);
   const digits = trimmed.replace(/\D/g, "");
   if (digits.length === 8) {
     return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
@@ -188,8 +399,9 @@ function normalizeDateValue(value: string): string {
 }
 
 function normalizePeriodValue(value: string, fallbackMonthToken: string | null): string {
-  const normalized = normalizeMonthToken(value) ?? fallbackMonthToken;
-  return normalized ?? value.trim();
+  const cleaned = cleanRawCellValue(value);
+  const normalized = normalizeMonthToken(cleaned) ?? fallbackMonthToken;
+  return normalized ?? cleaned;
 }
 
 function normalizeCellValue(column: string, value: string, fallbackMonthToken: string | null): string {
@@ -201,24 +413,93 @@ function normalizeCellValue(column: string, value: string, fallbackMonthToken: s
     return normalizeDateValue(value);
   }
 
-  return value.trim();
+  return cleanRawCellValue(value);
 }
 
-function resolveCanonicalHeaders(headers: string[]): Record<string, string | null> {
-  const result: Record<string, string | null> = {};
+function dedupeKeyForSource(sourceKey: SourceKey, row: StandardizedRow): string {
+  const preferredColumns: Record<SourceKey, string[]> = {
+    crm_activity: ["activity_date", "rep", "account", "activity_type"],
+    account_master: ["account_id", "account_name"],
+    crm_rep_master: ["rep_id", "rep_name"],
+    crm_account_assignment: ["account_id", "rep_id", "branch_id"],
+    crm_rules: ["metric_code", "metric_version"],
+    sales: ["account", "product", "period", "amount"],
+    target: ["period", "target_value", "account", "product"],
+    prescription: ["ship_date", "pharmacy", "product", "quantity"]
+  };
+
+  const preferredValues = preferredColumns[sourceKey]
+    .map((column) => cleanRawCellValue(row[column] ?? ""))
+    .filter(Boolean);
+
+  if (preferredValues.length > 0) {
+    return preferredValues.join("::");
+  }
+
+  return Object.entries(row)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => `${normalizeHeaderName(key)}=${cleanRawCellValue(value)}`)
+    .join("::");
+}
+
+function dedupeRows(sourceKey: SourceKey, rows: StandardizedRow[]): { rows: StandardizedRow[]; removedCount: number } {
+  const deduped = new Map<string, StandardizedRow>();
+
+  rows.forEach((row) => {
+    const key = dedupeKeyForSource(sourceKey, row);
+    if (!key) {
+      return;
+    }
+
+    if (!deduped.has(key)) {
+      deduped.set(key, row);
+    }
+  });
+
+  return {
+    rows: [...deduped.values()],
+    removedCount: rows.length - deduped.size
+  };
+}
+
+function resolveCanonicalHeaders(
+  headers: string[],
+  sourceRegistry?: SourceMappingRegistryEntry
+): {
+  mappedColumns: Record<string, string | null>;
+  matchedBy: Record<string, "alias" | "registry" | null>;
+} {
+  const mappedColumns: Record<string, string | null> = {};
+  const matchedBy: Record<string, "alias" | "registry" | null> = {};
 
   for (const [column, aliases] of Object.entries(COLUMN_ALIASES)) {
-    const matchedHeader =
+    const aliasMatchedHeader =
       headers.find((header) =>
         [column, ...aliases].some((alias) => normalizeHeaderName(header) === normalizeHeaderName(alias))
       ) ?? null;
-    result[column] = matchedHeader;
+
+    if (aliasMatchedHeader) {
+      mappedColumns[column] = aliasMatchedHeader;
+      matchedBy[column] = "alias";
+      continue;
+    }
+
+    const registryHeader = findMappedHeaderFromRegistry(headers, column, sourceRegistry);
+    mappedColumns[column] = registryHeader;
+    matchedBy[column] = registryHeader ? "registry" : null;
   }
 
-  return result;
+  return {
+    mappedColumns,
+    matchedBy
+  };
 }
 
-async function normalizeSource(companyKey: string, sourceKey: SourceKey): Promise<SourceNormalizationResult> {
+async function normalizeSource(
+  companyKey: string,
+  sourceKey: SourceKey,
+  sourceRegistry?: SourceMappingRegistryEntry
+): Promise<SourceNormalizationResult> {
   const definition = SOURCE_DEFINITIONS.find((item) => item.sourceKey === sourceKey);
   if (!definition) {
     throw new Error(`Unknown source key: ${sourceKey}`);
@@ -243,7 +524,8 @@ async function normalizeSource(companyKey: string, sourceKey: SourceKey): Promis
       rowCount: 0,
       mappedColumns: {},
       reviewColumns: REQUIRED_COLUMNS[sourceKey],
-      warnings: ["입력 파일이 없어 정규화를 건너뜁니다."]
+      warnings: ["입력 파일이 없어 정규화를 건너뜁니다."],
+      appliedFixes: []
     };
   }
 
@@ -263,19 +545,25 @@ async function normalizeSource(companyKey: string, sourceKey: SourceKey): Promis
       rowCount: 0,
       mappedColumns: {},
       reviewColumns: REQUIRED_COLUMNS[sourceKey],
-      warnings: ["현재 정규화는 csv/xlsx 중심으로 동작합니다."]
+      warnings: ["현재 정규화는 csv/xlsx 중심으로 동작합니다."],
+      appliedFixes: []
     };
   }
 
-  const mergedRows: StandardizedRow[] = [];
+  let mergedRows: StandardizedRow[] = [];
   const canonicalHeaders = new Set<string>();
   const mappedColumns: Record<string, string | null> = {};
   const warnings: string[] = [];
+  const appliedFixes: string[] = [];
+  const supportInputFiles = new Set<string>();
+  const registryReusedColumns = new Set<string>();
   let usedFallbackSheet = false;
+  let blankNormalizedCount = 0;
 
   for (const filePath of supportedFiles) {
     const { headers, rows, selectedSheet } = await parseTabularFile(filePath, PREFERRED_SHEET_NAMES[sourceKey]);
-    const canonicalMap = resolveCanonicalHeaders(headers);
+    const canonicalResolution = resolveCanonicalHeaders(headers, sourceRegistry);
+    const canonicalMap = canonicalResolution.mappedColumns;
     const fallbackMonthToken = extractMonthFromPath(filePath);
     if (isSpreadsheetFile(filePath) && selectedSheet) {
       const preferredNames = PREFERRED_SHEET_NAMES[sourceKey].map((item) => item.trim().toLowerCase());
@@ -286,6 +574,9 @@ async function normalizeSource(companyKey: string, sourceKey: SourceKey): Promis
 
     for (const requiredColumn of REQUIRED_COLUMNS[sourceKey]) {
       mappedColumns[requiredColumn] ??= canonicalMap[requiredColumn] ?? null;
+      if (canonicalResolution.matchedBy[requiredColumn] === "registry") {
+        registryReusedColumns.add(requiredColumn);
+      }
     }
 
     rows.forEach((row) => {
@@ -294,14 +585,22 @@ async function normalizeSource(companyKey: string, sourceKey: SourceKey): Promis
       for (const requiredColumn of REQUIRED_COLUMNS[sourceKey]) {
         const matchedHeader = canonicalMap[requiredColumn];
         const rawValue = matchedHeader ? (row[matchedHeader] ?? "") : "";
-        normalizedRow[requiredColumn] = normalizeCellValue(requiredColumn, rawValue, fallbackMonthToken);
+        const normalizedValue = normalizeCellValue(requiredColumn, rawValue, fallbackMonthToken);
+        if (cleanRawCellValue(rawValue) !== normalizedValue) {
+          blankNormalizedCount += 1;
+        }
+        normalizedRow[requiredColumn] = normalizedValue;
         canonicalHeaders.add(requiredColumn);
       }
 
       Object.entries(row).forEach(([header, value]) => {
         const normalizedHeader = normalizeHeaderName(header);
         if (![...canonicalHeaders].some((item) => normalizeHeaderName(item) === normalizedHeader)) {
-          normalizedRow[header.trim()] = value.trim();
+          const cleanedValue = cleanRawCellValue(value);
+          if (cleanRawCellValue(value) !== value.trim()) {
+            blankNormalizedCount += 1;
+          }
+          normalizedRow[header.trim()] = cleanedValue;
         }
       });
 
@@ -309,7 +608,70 @@ async function normalizeSource(companyKey: string, sourceKey: SourceKey): Promis
     });
   }
 
-  const reviewColumns = REQUIRED_COLUMNS[sourceKey].filter((column) => !mappedColumns[column]);
+  let reviewColumns = REQUIRED_COLUMNS[sourceKey].filter((column) => !mappedColumns[column]);
+  if (
+    (sourceKey === "account_master" || sourceKey === "crm_account_assignment") &&
+    (reviewColumns.includes("account_id") || reviewColumns.includes("account_name"))
+  ) {
+    const derivedRows =
+      sourceKey === "account_master"
+        ? await buildDerivedAccountMasterRows(companyKey)
+        : await buildDerivedAccountAssignmentRows(companyKey);
+
+    if (derivedRows.length > 0) {
+      const derivedSupport = await getDerivedSupportData(companyKey);
+      mergedRows = derivedRows;
+      mappedColumns.account_id ??= "derived_from_support_sources";
+      mappedColumns.account_name ??= "derived_from_support_sources";
+      mappedColumns.branch_id ??= "derived_from_support_sources";
+      mappedColumns.branch_name ??= "derived_from_support_sources";
+      mappedColumns.rep_id ??= "derived_from_support_sources";
+      mappedColumns.rep_name ??= "derived_from_support_sources";
+      reviewColumns = REQUIRED_COLUMNS[sourceKey].filter((column) => !mappedColumns[column]);
+      const message =
+        sourceKey === "account_master"
+          ? "원본 account master가 약해 다른 source를 이용한 실행용 거래처 마스터를 생성했습니다."
+          : "원본 account assignment가 약해 다른 source를 이용한 실행용 거래처 배정표를 생성했습니다.";
+      warnings.push(message);
+      appliedFixes.push(message);
+      appliedFixes.push(`${sourceKey}에서 account_id, account_name 실행용 컬럼을 자동 생성했습니다.`);
+      derivedSupport.inputFiles.forEach((item) => supportInputFiles.add(item));
+    }
+  }
+
+  if (
+    sourceKey === "crm_rep_master" &&
+    (reviewColumns.includes("rep_id") || reviewColumns.includes("rep_name") || reviewColumns.includes("branch_id") || reviewColumns.includes("branch_name"))
+  ) {
+    const derivedRows = await buildDerivedRepMasterRows(companyKey);
+    if (derivedRows.length > 0) {
+      const derivedSupport = await getDerivedSupportData(companyKey);
+      mergedRows = derivedRows;
+      mappedColumns.rep_id ??= "derived_from_support_sources";
+      mappedColumns.rep_name ??= "derived_from_support_sources";
+      mappedColumns.branch_id ??= "derived_from_support_sources";
+      mappedColumns.branch_name ??= "derived_from_support_sources";
+      reviewColumns = REQUIRED_COLUMNS[sourceKey].filter((column) => !mappedColumns[column]);
+      const message = "원본 rep master가 약해 다른 source를 이용한 실행용 담당자 마스터를 생성했습니다.";
+      warnings.push(message);
+      appliedFixes.push(message);
+      appliedFixes.push("crm_rep_master에서 rep_id, rep_name 실행용 컬럼을 자동 생성했습니다.");
+      derivedSupport.inputFiles.forEach((item) => supportInputFiles.add(item));
+    }
+  }
+
+  const dedupedResult = dedupeRows(sourceKey, mergedRows);
+  mergedRows = dedupedResult.rows;
+  if (registryReusedColumns.size > 0) {
+    appliedFixes.push(`${sourceKey}에서 저장된 매핑을 재사용했습니다: ${[...registryReusedColumns].join(", ")}.`);
+  }
+  if (dedupedResult.removedCount > 0) {
+    appliedFixes.push(`${sourceKey}에서 중복 행 ${dedupedResult.removedCount}건을 제거했습니다.`);
+  }
+  if (blankNormalizedCount > 0) {
+    appliedFixes.push(`${sourceKey}에서 공백/빈값 표현 ${blankNormalizedCount}건을 정리했습니다.`);
+  }
+
   if (reviewColumns.length > 0) {
     warnings.push(`확정되지 않은 필수 컬럼이 있습니다: ${reviewColumns.join(", ")}`);
   }
@@ -331,7 +693,8 @@ async function normalizeSource(companyKey: string, sourceKey: SourceKey): Promis
     row_count: mergedRows.length,
     mapped_columns: mappedColumns,
     review_columns: reviewColumns,
-    input_files: files.map(toPosixRelativePath),
+    input_files: [...new Set([...files.map(toPosixRelativePath), ...supportInputFiles])],
+    applied_fixes: appliedFixes,
     rows: mergedRows
   };
 
@@ -342,6 +705,7 @@ async function normalizeSource(companyKey: string, sourceKey: SourceKey): Promis
     standardized_at: new Date().toISOString(),
     row_count: mergedRows.length,
     schema_version: "v1",
+    applied_fixes: appliedFixes,
     rows: mergedRows
   };
 
@@ -354,6 +718,14 @@ async function normalizeSource(companyKey: string, sourceKey: SourceKey): Promis
   await fs.writeFile(stagingPath, JSON.stringify(stagingPayload, null, 2), "utf8");
   await fs.writeFile(standardizedPath, JSON.stringify(standardizedPayload, null, 2), "utf8");
   await writeRowsAsExcel(standardizedExcelPath, sourceKey, mergedRows);
+  await upsertSourceMappingRegistry({
+    companyKey,
+    sourceKey,
+    matchedColumns: mappedColumns,
+    derivedColumns: Object.entries(mappedColumns)
+      .filter(([, value]) => Boolean(value?.startsWith("derived_from_")))
+      .map(([column]) => column)
+  });
 
   return {
     sourceKey,
@@ -363,14 +735,15 @@ async function normalizeSource(companyKey: string, sourceKey: SourceKey): Promis
       reviewColumns.length > 0 || unsupportedFiles.length > 0
         ? "표준화는 생성했지만 일부 컬럼 확인 또는 지원하지 않는 형식 검토가 남아 있습니다."
         : "표준화 결과를 생성했습니다.",
-    inputFiles: files.map(toPosixRelativePath),
+    inputFiles: [...new Set([...files.map(toPosixRelativePath), ...supportInputFiles])],
     stagingPath: toPosixRelativePath(stagingPath),
     standardizedPath: toPosixRelativePath(standardizedPath),
     standardizedExcelPath: toPosixRelativePath(standardizedExcelPath),
     rowCount: mergedRows.length,
     mappedColumns,
     reviewColumns,
-    warnings
+    warnings,
+    appliedFixes
   };
 }
 
@@ -379,6 +752,7 @@ export async function runNormalization(input: {
   executionMode?: string | null;
 }): Promise<NormalizationResult> {
   assertValidCompanyKey(input.companyKey);
+  derivedSupportCache.delete(input.companyKey);
 
   await mergeMonthlyRawSources({ companyKey: input.companyKey });
 
@@ -391,9 +765,17 @@ export async function runNormalization(input: {
     throw new Error("현재 intake 상태가 blocked라서 정규화를 시작할 수 없습니다.");
   }
 
-  const sourceResults = await Promise.all(
-    SOURCE_DEFINITIONS.map((definition) => normalizeSource(input.companyKey, definition.sourceKey))
-  );
+  const mappingRegistry = await readColumnMappingRegistry(input.companyKey);
+  const sourceResults: SourceNormalizationResult[] = [];
+  for (const definition of SOURCE_DEFINITIONS) {
+    sourceResults.push(
+      await normalizeSource(
+        input.companyKey,
+        definition.sourceKey,
+        mappingRegistry.source_mappings[definition.sourceKey]
+      )
+    );
+  }
 
   const moduleOutputs: Record<SourceModuleKey, string[]> = {
     crm: [],

@@ -149,13 +149,13 @@
 - `Phase 3`: 입력 수용 구현 완료
 - `Phase 4`: 입력 검증 구현 완료
 - `Phase 5`: 정규화 구현 완료
-- 현재 진행 중: `Phase 5-1` 지저분한 raw 대응 보강
+- `Phase 5-1`: 지저분한 raw 대응 보강 완료
 - 현재 코드 기준 반영된 것:
   - `monthly_raw/YYYYMM/` 경로 감지
   - 월별 raw 병합 후 공식 raw 재생성
   - intake analyze 전 병합 자동 수행
   - normalization run 전 병합 자동 수행
-- 다음 우선순위: `Phase 5-1` 검증 보강 후 `Phase 6 ~ Phase 10` 백엔드 구현
+- 다음 우선순위: `Phase 6 ~ Phase 10` 백엔드 구현
 - 그 다음: `Phase 11 ~ Phase 14` 프론트 연결
 - 이후: `Phase 15 ~ Phase 18` 확장 및 안정화
 
