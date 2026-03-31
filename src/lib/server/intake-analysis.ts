@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 
 import { SOURCE_DEFINITIONS, SourceKey } from "@/lib/source-registry";
+import { mergeMonthlyRawSources } from "@/lib/server/monthly-merge";
 import { COLUMN_ALIASES, PREFERRED_SHEET_NAMES, REQUIRED_COLUMNS } from "@/lib/server/source-schema";
 import { assertValidCompanyKey, normalizeMonthToken } from "@/lib/server/source-storage";
 import { isSupportedTabularFile, readTabularHeaders } from "@/lib/server/tabular-file";
@@ -112,7 +113,12 @@ function onboardingPackagePath(companyKey: string, sourceKey: SourceKey): string
 }
 
 function normalizeHeaderName(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, "");
+  return value
+    .replace(/^\uFEFF/, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s()_\-./]+/g, "")
+    .replace(/[^0-9a-z가-힣]/g, "");
 }
 
 function resolveExecutionModeKey(executionMode: string | null | undefined): ExecutionModeKey {
@@ -134,14 +140,23 @@ function resolveExecutionModeKey(executionMode: string | null | undefined): Exec
 function requiredSourcesForMode(mode: ExecutionModeKey): SourceKey[] {
   switch (mode) {
     case "crm_only":
-      return ["crm_activity", "crm_rep_master", "crm_account_assignment"];
+      return ["crm_activity", "account_master", "crm_rep_master", "crm_account_assignment", "crm_rules"];
     case "sandbox":
-      return ["crm_activity", "crm_rep_master", "crm_account_assignment", "sales", "target"];
+      return ["crm_activity", "account_master", "crm_rep_master", "crm_account_assignment", "crm_rules", "sales", "target"];
     case "prescription":
       return ["prescription"];
     case "integrated":
     default:
-      return ["crm_activity", "crm_rep_master", "crm_account_assignment", "sales", "target", "prescription"];
+      return [
+        "crm_activity",
+        "account_master",
+        "crm_rep_master",
+        "crm_account_assignment",
+        "crm_rules",
+        "sales",
+        "target",
+        "prescription"
+      ];
   }
 }
 
@@ -381,6 +396,29 @@ export async function analyzeIntake(input: {
   const fixes: string[] = [];
   const suggestions: string[] = [];
   const timingAlerts: string[] = [];
+
+  const monthlyMergeResult = await mergeMonthlyRawSources({ companyKey: input.companyKey });
+  const mergedSources = monthlyMergeResult.source_summaries.filter((summary) => summary.status === "merged");
+  const skippedSources = monthlyMergeResult.source_summaries.filter((summary) => summary.status === "skipped");
+
+  mergedSources.forEach((summary) => {
+    fixes.push(
+      `${summary.sourceKey}는 월별 raw ${summary.monthCount}개월치를 병합해 ${summary.mergedTargetPath}로 다시 생성했습니다.`
+    );
+    findings.push({
+      level: "info",
+      sourceKey: summary.sourceKey,
+      message: `${summary.sourceKey} 월별 raw를 병합해 공식 raw 파일로 준비했습니다.`
+    });
+  });
+
+  skippedSources.forEach((summary) => {
+    findings.push({
+      level: "info",
+      sourceKey: summary.sourceKey,
+      message: `${summary.sourceKey}는 기존 merged raw가 더 최신이라 월별 병합을 다시 수행하지 않았습니다.`
+    });
+  });
 
   const inspections = await Promise.all(
     SOURCE_DEFINITIONS.map((definition) => inspectSource(input.companyKey, definition.sourceKey))

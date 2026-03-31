@@ -4,9 +4,10 @@ export type SourceModuleKey = "crm" | "sandbox" | "prescription";
 
 export const REQUIRED_COLUMNS: Record<SourceKey, string[]> = {
   crm_activity: ["activity_date", "rep", "account", "activity_type"],
-  crm_rep_master: ["rep", "organization"],
-  crm_account_assignment: ["account", "rep"],
-  crm_rules: [],
+  account_master: ["account_id", "account_name", "branch_id", "branch_name", "rep_id", "rep_name"],
+  crm_rep_master: ["rep_id", "rep_name", "branch_id", "branch_name"],
+  crm_account_assignment: ["account_id", "account_name", "branch_id", "branch_name", "rep_id", "rep_name"],
+  crm_rules: ["metric_code", "metric_name", "formula_expression", "metric_version"],
   sales: ["account", "product", "amount", "period"],
   target: ["period", "target_value"],
   prescription: ["ship_date", "pharmacy", "product", "quantity"]
@@ -15,20 +16,34 @@ export const REQUIRED_COLUMNS: Record<SourceKey, string[]> = {
 export const COLUMN_ALIASES: Record<string, string[]> = {
   activity_date: ["activity_date", "visit_date", "방문일", "활동일", "실행일", "date"],
   rep: ["rep", "담당자명", "사원명", "영업사원명", "담당자", "rep_name"],
-  account: ["account", "병원코드", "병원명", "거래처명", "account_id", "account_name", "거래처코드"],
+  rep_id: ["rep_id", "영업사원코드", "사원코드", "담당자코드"],
+  rep_name: ["rep_name", "영업사원명", "담당자명", "사원명", "rep"],
+  account: ["account", "병원코드", "병원명", "거래처명", "account_id", "account_name", "거래처코드", "방문기관"],
+  account_id: ["account_id", "거래처코드", "병원코드", "account_code"],
+  account_name: ["account_name", "거래처명", "병원명", "거래처", "account"],
   activity_type: ["activity_type", "활동유형", "액션유형", "call_type"],
   organization: ["organization", "조직", "소속"],
-  product: ["product", "product_id", "product_name", "품목명", "제품명", "brand", "sku"],
-  amount: ["amount", "매출", "매출액", "실적", "revenue"],
+  branch_id: ["branch_id", "본부코드", "지점코드", "branch_code"],
+  branch_name: ["branch_name", "본부명", "지점명", "branch"],
+  region_key: ["region_key", "광역시도", "시도", "지역"],
+  sub_region_key: ["sub_region_key", "시군구", "구군", "세부지역"],
+  account_capacity: ["account_capacity", "배정가능계정수", "담당가능계정수"],
+  product: ["product", "product_id", "product_name", "품목명", "제품명", "brand", "sku", "브랜드명", "brand (브랜드)", "sku (sku)"],
+  amount: ["amount", "매출", "매출액", "실적", "revenue", "매출금액", "amount_ship"],
   period: ["period", "yyyymm", "sales_month", "month", "매출월", "목표월", "기준년월", "월"],
-  target_value: ["target_value", "목표", "목표값", "target"],
-  ship_date: ["ship_date", "출고일", "처방일", "date"],
-  pharmacy: ["pharmacy", "약국", "pharmacy_name"],
-  quantity: ["quantity", "수량", "qty"]
+  target_value: ["target_value", "목표", "목표값", "target", "계획금액"],
+  ship_date: ["ship_date", "출고일", "처방일", "date", "ship_date (출고일)"],
+  pharmacy: ["pharmacy", "약국", "pharmacy_name", "pharmacy_name (약국명)", "pharmacy_account_id"],
+  quantity: ["quantity", "수량", "qty", "qty (수량)"],
+  metric_code: ["metric_code", "kpi_code", "지표코드"],
+  metric_name: ["metric_name", "metric_name_ko", "kpi_name", "지표명"],
+  formula_expression: ["formula_expression", "formula", "계산식"],
+  metric_version: ["metric_version", "version", "버전"]
 };
 
 export const SOURCE_TO_MODULE: Record<SourceKey, SourceModuleKey> = {
   crm_activity: "crm",
+  account_master: "crm",
   crm_rep_master: "crm",
   crm_account_assignment: "crm",
   crm_rules: "crm",
@@ -39,6 +54,7 @@ export const SOURCE_TO_MODULE: Record<SourceKey, SourceModuleKey> = {
 
 export const STANDARDIZED_FILENAMES: Record<SourceKey, string> = {
   crm_activity: "standardized_crm_activity.json",
+  account_master: "standardized_account_master.json",
   crm_rep_master: "standardized_crm_rep_master.json",
   crm_account_assignment: "standardized_crm_account_assignment.json",
   crm_rules: "standardized_crm_rules.json",
@@ -49,6 +65,7 @@ export const STANDARDIZED_FILENAMES: Record<SourceKey, string> = {
 
 export const PREFERRED_SHEET_NAMES: Record<SourceKey, string[]> = {
   crm_activity: ["crm_activity", "activity", "활동", "영업활동", "sheet1"],
+  account_master: ["account_master", "account", "거래처", "거래처마스터", "sheet1"],
   crm_rep_master: ["crm_rep_master", "rep_master", "담당자", "사원", "sheet1"],
   crm_account_assignment: ["crm_account_assignment", "assignment", "배정", "거래처배정", "sheet1"],
   crm_rules: ["crm_rules", "rules", "rule", "규칙", "sheet1"],

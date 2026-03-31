@@ -1,8 +1,11 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
+import * as XLSX from "xlsx";
+
 import { SOURCE_DEFINITIONS, type SourceKey } from "@/lib/source-registry";
 import { readLatestIntakeResult } from "@/lib/server/intake-analysis";
+import { mergeMonthlyRawSources } from "@/lib/server/monthly-merge";
 import { assertValidCompanyKey, normalizeMonthToken } from "@/lib/server/source-storage";
 import {
   COLUMN_ALIASES,
@@ -29,6 +32,7 @@ type SourceNormalizationResult = {
   inputFiles: string[];
   stagingPath: string | null;
   standardizedPath: string | null;
+  standardizedExcelPath: string | null;
   rowCount: number;
   mappedColumns: Record<string, string | null>;
   reviewColumns: string[];
@@ -89,6 +93,10 @@ function sourceStandardizedPath(companyKey: string, sourceKey: SourceKey): strin
   );
 }
 
+function sourceStandardizedExcelPath(companyKey: string, sourceKey: SourceKey): string {
+  return sourceStandardizedPath(companyKey, sourceKey).replace(/\.json$/i, ".xlsx");
+}
+
 function normalizationReportPath(companyKey: string, moduleKey: SourceModuleKey): string {
   return path.join(standardizedCompanyRoot(companyKey), moduleKey, "normalization_report.json");
 }
@@ -108,6 +116,26 @@ async function fileExists(targetPath: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+function collectExcelHeaders(sourceKey: SourceKey, rows: StandardizedRow[]): string[] {
+  const headers = new Set<string>(REQUIRED_COLUMNS[sourceKey]);
+  rows.forEach((row) => {
+    Object.keys(row).forEach((key) => headers.add(key));
+  });
+  return [...headers];
+}
+
+async function writeRowsAsExcel(filePath: string, sourceKey: SourceKey, rows: StandardizedRow[]): Promise<void> {
+  const headers = collectExcelHeaders(sourceKey, rows);
+  const worksheet =
+    rows.length > 0
+      ? XLSX.utils.json_to_sheet(rows, { header: headers })
+      : XLSX.utils.aoa_to_sheet([headers]);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "standardized");
+  const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+  await fs.writeFile(filePath, buffer);
 }
 
 async function listFilesRecursively(targetPath: string): Promise<string[]> {
@@ -131,7 +159,12 @@ async function listFilesRecursively(targetPath: string): Promise<string[]> {
 }
 
 function normalizeHeaderName(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, "");
+  return value
+    .replace(/^\uFEFF/, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s()_\-./]+/g, "")
+    .replace(/[^0-9a-z가-힣]/g, "");
 }
 
 function extractMonthFromPath(filePath: string): string | null {
@@ -206,6 +239,7 @@ async function normalizeSource(companyKey: string, sourceKey: SourceKey): Promis
       inputFiles: [],
       stagingPath: null,
       standardizedPath: null,
+      standardizedExcelPath: null,
       rowCount: 0,
       mappedColumns: {},
       reviewColumns: REQUIRED_COLUMNS[sourceKey],
@@ -225,6 +259,7 @@ async function normalizeSource(companyKey: string, sourceKey: SourceKey): Promis
       inputFiles: files.map(toPosixRelativePath),
       stagingPath: null,
       standardizedPath: null,
+      standardizedExcelPath: null,
       rowCount: 0,
       mappedColumns: {},
       reviewColumns: REQUIRED_COLUMNS[sourceKey],
@@ -312,10 +347,13 @@ async function normalizeSource(companyKey: string, sourceKey: SourceKey): Promis
 
   const stagingPath = sourceStagingPath(companyKey, sourceKey);
   const standardizedPath = sourceStandardizedPath(companyKey, sourceKey);
+  const standardizedExcelPath = sourceStandardizedExcelPath(companyKey, sourceKey);
   await ensureDir(path.dirname(stagingPath));
   await ensureDir(path.dirname(standardizedPath));
+  await ensureDir(path.dirname(standardizedExcelPath));
   await fs.writeFile(stagingPath, JSON.stringify(stagingPayload, null, 2), "utf8");
   await fs.writeFile(standardizedPath, JSON.stringify(standardizedPayload, null, 2), "utf8");
+  await writeRowsAsExcel(standardizedExcelPath, sourceKey, mergedRows);
 
   return {
     sourceKey,
@@ -328,6 +366,7 @@ async function normalizeSource(companyKey: string, sourceKey: SourceKey): Promis
     inputFiles: files.map(toPosixRelativePath),
     stagingPath: toPosixRelativePath(stagingPath),
     standardizedPath: toPosixRelativePath(standardizedPath),
+    standardizedExcelPath: toPosixRelativePath(standardizedExcelPath),
     rowCount: mergedRows.length,
     mappedColumns,
     reviewColumns,
@@ -340,6 +379,8 @@ export async function runNormalization(input: {
   executionMode?: string | null;
 }): Promise<NormalizationResult> {
   assertValidCompanyKey(input.companyKey);
+
+  await mergeMonthlyRawSources({ companyKey: input.companyKey });
 
   const intakeResult = await readLatestIntakeResult(input.companyKey);
   if (!intakeResult) {
@@ -363,6 +404,9 @@ export async function runNormalization(input: {
   sourceResults.forEach((result) => {
     if (result.standardizedPath) {
       moduleOutputs[result.moduleKey].push(result.standardizedPath);
+    }
+    if (result.standardizedExcelPath) {
+      moduleOutputs[result.moduleKey].push(result.standardizedExcelPath);
     }
   });
 

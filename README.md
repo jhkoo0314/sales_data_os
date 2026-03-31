@@ -24,14 +24,18 @@
 - 문서 동기화 완료
 - 디자인 가이드 및 HTML 시안 정리
 - 핵심 페이지 기본 뼈대 구현
-- `Phase 2. 앱 프레임과 디자인 베이스` 완료
+- `Phase 1 ~ Phase 5` 구현 반영
+- `Phase 5-1. 지저분한 raw 대응 보강` 진행 중
 - 백엔드 로직 설계 문서 완료
 - Python/worker 의존성 파일 정리
 - 보고서 템플릿 검토 및 패키지 기준 정리
 
 다음 구현 우선순위:
 
-- `입력 -> 검증 -> 정규화 -> KPI -> validation -> payload -> builder` 백엔드 파일 구현
+- `company_000002` 기준 월별 raw 검증 준비 상태 확인
+- `monthly_raw -> merged raw -> intake -> _intake_staging -> normalization` 흐름 보강
+- 지저분한 raw 자동보정 규칙 보강
+- 그 다음 `KPI -> validation -> payload -> builder` 백엔드 파일 구현
 - Supabase 실제 연결
 - Python worker 실제 구현
 - 프론트엔드와 실제 엔진 연결

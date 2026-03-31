@@ -598,8 +598,9 @@ sales_os/
 쉽게 말하면 다음 순서는 아래다.
 
 1. `docs/13_backend_logic_request_prompt.md` 기준으로 백엔드 엔진 파일 구현
-2. worker / run / result 흐름이 실제로 동작하도록 연결
-3. 그 후 프론트엔드에서 실행, 상태 조회, 결과 열람을 실제 엔진과 연결
+2. 정상 raw와 지저분한 raw를 함께 받는 intake / normalization 보강
+3. worker / run / result 흐름이 실제로 동작하도록 연결
+4. 그 후 프론트엔드에서 실행, 상태 조회, 결과 열람을 실제 엔진과 연결
 
 중요:
 
@@ -758,6 +759,205 @@ sales_os/
 - `data/standardized/{company_key}/{module}/standardized_*.json` 생성
 - 모듈별 `normalization_report.json` 생성
 - 정규화 실행/조회 API 추가
+
+### [ ] Phase 5-1. 지저분한 raw 대응 보강
+
+구현 시 먼저 볼 설계 문서:
+
+- `docs/13_backend_logic_request_prompt.md`
+  - `Phase 2. 입력 검증 규칙`
+  - `Phase 3. 정규화 규칙`
+- `docs/backend_architecture/SALES_DATA_OS_BACKEND_LOGIC_SPEC.md`
+  - `02_prevalidation_rules`
+  - `03_normalization_schema`
+- `docs/backend_architecture/CRM_KPI_FORMULA_SPEC.md`
+  - `crm_rules` 입력 기준과 KPI 계산 분리 취지
+- `docs/summary/original_project_testing_practice_research_20260331.md`
+  - 원본 프로젝트의 자동 테스트 + 실데이터 검증 방식
+
+목적:
+
+- 깔끔하게 정리된 raw만 통과시키는 수준을 넘어서,
+  실제 현업의 지저분한 raw도 intake와 normalization 단계에서 최대한 자동보정해서 다음 단계로 넘긴다
+
+핵심 구현:
+
+- 회사별 실제 raw 헤더 흔들림을 alias / dictionary로 보강
+- 공백, BOM, 괄호, 구분자 흔들림을 흡수하는 header normalization 강화
+- 날짜/월 형식 흔들림 보정
+- source별 파일명 / 폴더명 흔들림 보정 규칙 추가
+- 중복 행, 비정상 값, 빈 행 처리 규칙 추가
+- 자동보정 가능한 항목과 사람 검토가 필요한 항목 분리
+- `account_master`, `crm_rules` 같은 운영 필수 source를 공식 입력 기준으로 고정
+- 정상 raw 1세트 + 지저분한 raw 1세트 기준 재검증
+
+완료 기준:
+
+- 깔끔한 raw는 `ready` 또는 `completed`
+- 지저분한 raw도 가능한 범위에서는 `ready_with_fixes` 또는 `completed_with_review`까지 연결
+- 정말 읽을 수 없는 경우만 `blocked`
+- `_onboarding`, `_intake_staging`, `standardized_*` 결과가 실제 회사 raw 기준으로 다시 생성됨
+
+현재 바로 해야 하는 세부 작업:
+
+1. `daon_pharma`를 정상 기준 raw 세트로 고정
+2. 지저분한 raw 샘플 1세트 추가 확보
+3. intake alias / column dictionary / header normalization 보강
+4. normalization 단계 값 보정 규칙 추가
+5. 정상 raw / 지저분한 raw 각각 재검증
+6. 그 다음 `Phase 6`으로 진행
+
+Phase 5-1 체크리스트:
+
+- [ ] 정상 기준 raw를 `daon_pharma`로 고정하고 기준 입력 세트로 유지
+- [ ] 지저분한 raw 샘플을 최소 1세트 확보하고 문제 유형을 분류
+- [ ] 문제 유형 목록 정리
+  - 컬럼명 흔들림
+  - 날짜 형식 섞임
+  - 월 형식 섞임
+  - 시트 이름 차이
+  - 필수 컬럼 일부 누락
+  - 같은 뜻 다른 이름
+  - 중복 행
+  - 공백 / BOM / 괄호 / 특수문자 흔들림
+- [ ] intake용 `fixers` 계층 분리
+- [ ] 컬럼명 정리 규칙 함수화
+- [ ] 날짜 정리 규칙 함수화
+- [ ] 월 값 정리 규칙 함수화
+- [ ] 중복 행 제거 규칙 함수화
+- [ ] 빈 문자열 / 공백값 정리 규칙 추가
+- [ ] 자동 수정 내역을 source별 fix 기록으로 남기기
+- [ ] `rules / alias` 레이어 강화
+- [ ] source별 필수 의미 컬럼 재정리
+- [ ] `account_master` 규칙 추가/보강
+- [ ] `crm_rules` 규칙 추가/보강
+- [ ] 실제 회사 raw 기준 alias 확장
+- [ ] 필수 항목과 있으면 좋은 항목 구분
+- [ ] `candidate suggestion` 레이어 구현
+- [ ] 100% 확정 못한 컬럼은 후보 1~3개 추천
+- [ ] 후보가 있으면 즉시 차단하지 않고 안내 문구로 남기기
+- [ ] 후보도 없으면 `needs_review`로 올리기
+- [ ] 사용자 화면에서 이해할 수 있는 쉬운 설명 문장으로 반환
+- [ ] `execution-ready canonical column` 자동 생성 계층 구현
+- [ ] adapter가 기대하는 실행용 컬럼명을 intake에서 자동 추가
+- [ ] 원본 컬럼은 지우지 않고 유지
+- [ ] 자동 생성된 컬럼도 fix 기록에 남기기
+- [ ] source별 canonical map 관리 구조 만들기
+- [ ] 운영 필수 source 보강 로직 구현
+- [ ] `crm_account_assignment`가 약할 때 다른 source로 실행용 보강
+- [ ] `crm_rep_master`가 약할 때 assignment 기반 실행용 보강
+- [ ] `account_master`를 지점/인원 기준 source로 활용
+- [ ] 보강 성공 시 `ready_with_fixes`, 실패 시 `needs_review`로 분기
+- [ ] `_intake_staging`을 공식 adapter 입력으로 고정
+- [ ] `_onboarding`에 source별 결과 json 저장
+- [ ] intake latest snapshot 저장
+- [ ] 확정된 매핑을 registry로 저장
+- [ ] 저장된 매핑 재사용 흐름 추가
+- [ ] intake 판정 기준을 명확히 고정
+- [ ] `ready`
+- [ ] `ready_with_fixes`
+- [ ] `needs_review`
+- [ ] `blocked`
+- [ ] 위 네 상태를 코드와 화면 문구에서 같은 의미로 사용
+- [ ] 테스트 세트 추가
+- [ ] 정상 raw 통과 테스트
+- [ ] 지저분한 컬럼명 자동 매핑 테스트
+- [ ] 날짜 / 월 자동 보정 테스트
+- [ ] 후보 추천은 뜨지만 실행은 가능한 테스트
+- [ ] 필수 정보 부족 시 `needs_review` 테스트
+- [ ] source 부재 시 `blocked` 테스트
+- [ ] `_intake_staging` 생성 테스트
+- [ ] 실사용 검증 순서 고정
+- [ ] dirty raw 샘플 투입
+- [ ] intake 실행
+- [ ] 판정 확인
+- [ ] `_intake_staging` 생성 확인
+- [ ] normalization 재실행
+- [ ] 표준화 결과 확인
+- [ ] 자동 처리 / 사람 검토 분기 결과 문서화
+
+Phase 5-1 월별 raw 병합 체크리스트:
+
+구현 시 먼저 볼 설계 문서:
+
+- `docs/backend_architecture/SALES_DATA_OS_BACKEND_LOGIC_SPEC.md`
+  - 입력 저장 경로
+  - `_intake_staging`
+  - `_onboarding`
+  - `data/standardized`
+- `docs/backend_architecture/SALES_DATA_OS_WEB_BACKEND_API_SPEC.md`
+  - source upload
+  - monthly upload
+  - intake / normalization API
+- `docs/summary/original_project_raw_merge_generation_pipeline_research_20260331.md`
+  - 원본 프로젝트의 raw 생성 / 월별 병합 / 실행 파이프라인 조사 결과
+- `docs/summary/original_project_dirty_raw_intake_normalization_research_20260331.md`
+  - 원본 프로젝트의 intake / staging / dirty raw 처리 조사 결과
+- `docs/summary/original_project_normalization_adapter_staging_research_20260331.md`
+  - 원본 프로젝트의 normalize / adapter / staging 조사 결과
+
+단계별로 볼 문서 기준:
+
+1. 월별 입력 경로 / 파일명 / 저장 위치를 고정할 때
+- `docs/backend_architecture/SALES_DATA_OS_WEB_BACKEND_API_SPEC.md`
+- `docs/backend_architecture/SALES_DATA_OS_BACKEND_LOGIC_SPEC.md`
+
+2. 원본의 월별 병합 흐름을 따라 구현할 때
+- `docs/summary/original_project_raw_merge_generation_pipeline_research_20260331.md`
+
+3. 병합 후 intake와 `_intake_staging` 연결 방식을 맞출 때
+- `docs/summary/original_project_dirty_raw_intake_normalization_research_20260331.md`
+
+4. 병합 후 normalization 연결 방식을 맞출 때
+- `docs/summary/original_project_normalization_adapter_staging_research_20260331.md`
+
+5. 실제 검증 절차와 테스트 기준을 잡을 때
+- `docs/summary/original_project_testing_practice_research_20260331.md`
+
+- [ ] 원본 프로젝트의 월별 병합 흐름을 현재 프로젝트 기준으로 다시 고정
+- [ ] 공식 월별 입력 경로를 `data/company_source/{company_key}/monthly_raw/YYYYMM/`로 고정
+- [ ] 월 폴더명은 `YYYYMM`만 허용하도록 점검 규칙 추가
+- [ ] 월별 병합 대상 source를 공식화
+- [ ] `crm_activity`
+- [ ] `sales`
+- [ ] `target`
+- [ ] `prescription`
+- [ ] 월별 파일명 규칙 고정
+- [ ] `crm_activity_raw.xlsx`
+- [ ] `sales_raw.xlsx`
+- [ ] `target_raw.xlsx`
+- [ ] `prescription_raw.csv` 또는 현재 프로젝트 표준명 기준으로 일관되게 정리
+- [ ] 월별 raw 탐지 함수 구현
+- [ ] 회사별 `monthly_raw` 존재 여부 확인
+- [ ] 월 목록 수집
+- [ ] source별 실제 존재 파일 수집
+- [ ] 어떤 source가 몇 개월치 들어왔는지 요약 생성
+- [ ] 월별 병합 엔진 구현
+- [ ] source별 파일 읽기
+- [ ] 월 순서 기준 정렬
+- [ ] 세로 병합
+- [ ] 병합 결과를 공식 raw 경로에 다시 저장
+- [ ] 업로드로 직접 들어온 파일이 있으면 월별 병합보다 우선할지 규칙 고정
+- [ ] 병합 결과 요약 메타 저장
+- [ ] 병합에 사용한 월 목록 저장
+- [ ] source별 병합 행 수 저장
+- [ ] 월별 합계와 병합 결과 합계 비교 기록
+- [ ] intake 실행 전에 월별 병합이 먼저 돌도록 순서 고정
+- [ ] 흐름을 `monthly_raw -> merged raw -> intake -> _intake_staging -> normalization`으로 고정
+- [ ] 병합 결과도 `_onboarding` 또는 별도 메타 파일에 남기기
+- [ ] `monthly_merge_pharma`를 월별 병합 기준 테스트 회사로 고정
+- [ ] `monthly_merge_pharma` 폴더 구조 점검 자동화
+- [ ] 병합 후 merged raw가 기대 경로에 생성되는지 확인
+- [ ] 병합 후 intake가 `ready` 또는 `ready_with_fixes`까지 가는지 확인
+- [ ] 병합 후 normalization이 실제로 완료되는지 확인
+- [ ] 월별 병합 테스트 세트 추가
+- [ ] 월 폴더가 일부 빠진 경우 테스트
+- [ ] 일부 source만 월별 파일이 있는 경우 테스트
+- [ ] 파일명은 맞지만 형식이 잘못된 경우 테스트
+- [ ] 월별 합계와 merged 결과 행 수가 맞는지 테스트
+- [ ] 병합 후 표준화 결과가 생성되는지 테스트
+- [ ] `monthly_merge_pharma` 실데이터 기준 검증 절차 문서화
+- [ ] raw 생성기 전체 이식은 후순위로 두고, 월별 병합 엔진 이식이 먼저라는 우선순위 명시
 
 ### [ ] Phase 6. KPI 계산과 Result Asset Base 구현
 

@@ -1,5 +1,6 @@
 export type SourceKey =
   | "crm_activity"
+  | "account_master"
   | "crm_rep_master"
   | "crm_account_assignment"
   | "crm_rules"
@@ -22,6 +23,13 @@ export const SOURCE_DEFINITIONS: SourceDefinition[] = [
     folder: "crm",
     filenameBase: "crm_activity_raw",
     supportsMonthlyUpload: true
+  },
+  {
+    sourceKey: "account_master",
+    label: "Account Master",
+    folder: "company",
+    filenameBase: "account_master",
+    supportsMonthlyUpload: false
   },
   {
     sourceKey: "crm_rep_master",

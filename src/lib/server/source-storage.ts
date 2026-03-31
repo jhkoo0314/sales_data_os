@@ -74,6 +74,10 @@ function companyRoot(companyKey: string): string {
   return path.join(DATA_ROOT, companyKey);
 }
 
+function monthlyRawRoot(companyKey: string): string {
+  return path.join(companyRoot(companyKey), "monthly_raw");
+}
+
 function onboardingRoot(companyKey: string): string {
   return path.join(companyRoot(companyKey), "_onboarding");
 }
@@ -149,6 +153,12 @@ async function collectFiles(targetPath: string): Promise<SavedSourceFile[]> {
   return files.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 }
 
+function matchesSourceFile(definition: SourceDefinition, relativePath: string): boolean {
+  const normalized = relativePath.split("\\").join("/").toLowerCase();
+  const basename = path.basename(normalized);
+  return basename.startsWith(definition.filenameBase.toLowerCase());
+}
+
 function latestUploadedAt(files: SavedSourceFile[]): string | null {
   return files[0]?.updatedAt ?? null;
 }
@@ -164,13 +174,11 @@ function monthlySourceTargetPath(
   monthToken: string,
   originalName: string
 ): string {
-  const safeOriginalName = sanitizeFilename(originalName);
+  const extension = extensionFromName(originalName);
   return path.join(
-    companyRoot(companyKey),
-    definition.folder,
-    "monthly_raw",
+    monthlyRawRoot(companyKey),
     monthToken,
-    `${definition.sourceKey}_${safeOriginalName}`
+    `${definition.filenameBase}${extension}`
   );
 }
 
@@ -328,9 +336,13 @@ export async function listCompanySources(companyKey: string): Promise<{
   const items = await Promise.all(
     SOURCE_DEFINITIONS.map(async (definition) => {
       const sourceRoot = path.join(companyRoot(companyKey), definition.folder);
-      const files = await collectFiles(sourceRoot);
-      const hasMonthlyFiles = files.some((file) => file.relativePath.includes("/monthly_raw/"));
-      const hasGeneralFiles = files.some((file) => !file.relativePath.includes("/monthly_raw/"));
+      const generalFiles = (await collectFiles(sourceRoot)).filter((file) => matchesSourceFile(definition, file.relativePath));
+      const monthlyFiles = definition.supportsMonthlyUpload
+        ? (await collectFiles(monthlyRawRoot(companyKey))).filter((file) => matchesSourceFile(definition, file.relativePath))
+        : [];
+      const files = [...generalFiles, ...monthlyFiles].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+      const hasMonthlyFiles = monthlyFiles.length > 0;
+      const hasGeneralFiles = generalFiles.length > 0;
       const lastUpload = uploadIndex.uploads.find((upload) => upload.sourceKey === definition.sourceKey) ?? null;
 
       return {

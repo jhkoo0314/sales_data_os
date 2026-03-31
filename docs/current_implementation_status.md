@@ -26,6 +26,10 @@
 - `Phase 4. 입력 검증 구현`
 - `Phase 5. 정규화 구현`
 
+현재 진행 중 Phase:
+
+- `Phase 5-1. 지저분한 raw 대응 보강`
+
 아직 남은 Phase:
 
 - `Phase 6. KPI 계산과 Result Asset Base 구현`
@@ -100,6 +104,20 @@
 - 시트를 못 찾으면 마지막에만 첫 번째 시트로 fallback 한다
 - `tsv`, `txt`는 공식 입력 기준에서 제외했다
 
+추가 구현 메모:
+
+- `daon_pharma` 기준으로 공식 source 구조를 다시 정리했다
+  - `account_master`
+  - `crm_rep_master`
+  - `crm_account_assignment`
+  - `crm_rules`
+  - `sales`
+  - `target`
+  - `prescription`
+- `crm_rules`는 `CRM_KPI_FORMULA_SPEC.md` 기준으로 별도 source 파일을 두는 방향으로 정리했다
+- `daon_pharma` 기준 intake는 `ready`, normalization은 실데이터 기준 재생성 확인 완료
+- 다음 바로 해야 할 일은 `지저분한 raw 대응 보강`이다
+
 핵심 파일:
 
 - `src/lib/server/normalization.ts`
@@ -107,6 +125,32 @@
 - `src/lib/server/source-schema.ts`
 - `app/api/companies/[companyKey]/normalization/run/route.ts`
 - `app/api/companies/[companyKey]/normalization/result/route.ts`
+
+### Phase 5-1. 지저분한 raw 대응 보강
+
+현재까지 반영된 내용:
+
+- 월별 raw 병합 서비스 추가
+- 공식 월별 입력 경로를 `data/company_source/{company_key}/monthly_raw/YYYYMM/` 기준으로 읽도록 연결
+- 월별 병합 대상 source를 `crm_activity`, `sales`, `target`, `prescription`으로 고정
+- 병합 결과를 공식 raw 경로에 다시 생성하도록 연결
+- 병합 결과 요약을 `_onboarding/latest_monthly_merge_result.json`과 이력 파일로 저장
+- intake analyze 시작 전에 월별 병합이 먼저 돌도록 연결
+- normalization run 시작 전에도 월별 병합을 다시 확인하도록 연결
+- `company_000002` 기준 월별 raw 검증 준비용 폴더 구조와 파일명 정리를 진행 중
+
+현재 해석:
+
+- 코드 기준으로는 `monthly_raw -> merged raw -> intake -> _intake_staging -> normalization` 흐름의 뼈대가 이미 들어갔다
+- 다만 `company_000002` 기준 실제 intake/정규화 재검증은 아직 이번 세션에서 다시 돌리지 않았다
+- 따라서 이 단계는 `완료`가 아니라 `진행 중`으로 보는 것이 맞다
+
+핵심 파일:
+
+- `src/lib/server/monthly-merge.ts`
+- `src/lib/server/intake-analysis.ts`
+- `src/lib/server/normalization.ts`
+- `src/lib/server/source-storage.ts`
 
 ## 4. 현재 고정된 구현 원칙
 
@@ -121,11 +165,13 @@
 
 바로 다음 작업:
 
-1. `Phase 6. KPI 계산과 Result Asset Base 구현`
-2. `Phase 7. validation 구현`
-3. `Phase 8. payload 조립 구현`
-4. `Phase 9. Builder 구현`
-5. `Phase 10. Worker Runtime 구현`
+1. `Phase 5-1`에서 `company_000002` 기준 intake / normalization 실제 검증 재확인
+2. 지저분한 raw 자동보정 규칙과 결과 기록 보강
+3. `Phase 6. KPI 계산과 Result Asset Base 구현`
+4. `Phase 7. validation 구현`
+5. `Phase 8. payload 조립 구현`
+6. `Phase 9. Builder 구현`
+7. `Phase 10. Worker Runtime 구현`
 
 ## 6. 참고 문서
 
