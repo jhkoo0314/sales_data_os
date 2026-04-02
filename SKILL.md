@@ -151,15 +151,17 @@
 - `Phase 5`: 정규화 구현 완료
 - `Phase 5-1`: 지저분한 raw 대응 보강 완료
 - 현재 코드 기준 반영된 것:
-  - `monthly_raw/YYYYMM/` 경로 감지
-  - 월별 raw 병합 후 공식 raw 재생성
-  - intake analyze 전 병합 자동 수행
-  - normalization run 전 병합 자동 수행
-- 다음 우선순위: `Phase 10` 백엔드 구현
-- 그 다음: `Phase 11 ~ Phase 14` 프론트 연결
+  - Python `intake` 재구현
+  - Python `monthly_raw` 병합 엔진 연결
+  - Python `_intake_staging` 생성 연결
+  - Python `data/standardized/{company_key}/{module}` 생성 연결
+  - 빠른 pytest와 실데이터 smoke 검증 구조 분리
+- 다음 우선순위: `Phase 6` 백엔드 구현
+- 그 다음: `Phase 7 ~ Phase 10`
+- 이후: `Phase 11 ~ Phase 14` 프론트 연결
 - 이후: `Phase 15 ~ Phase 18` 확장 및 안정화
 
-`Phase 10` 참고 문서 우선순위:
+`Phase 6` 참고 문서 우선순위:
 
 1. `docs/task.md`
 2. `docs/current_implementation_status.md`
@@ -169,25 +171,10 @@
 
 현재 구현 해석:
 
-- `Phase 6`은 완료다
-  - `crm`, `sandbox`, `territory`, `prescription`, `radar` result asset 생성
-  - 모듈별 KPI result API 분리 완료
-- `Phase 7`도 완료다
-  - validation summary
-  - evidence
-  - `runs/{run_id}` 저장
-  - `report_context`, `execution_analysis` 생성
-- `Phase 8`도 완료다
-  - 모듈별 builder payload
-  - input standard
-  - payload API
-- `Phase 9`도 완료다
-  - preview HTML 생성
-  - builder reports / artifacts API
-  - `total_valid_preview.html` 생성
-  - CRM / Territory 템플릿 계약 복원
-  - lazy-load 주입 정상화
-- 현재 다음 시작점은 `Phase 10 worker runtime`이다
+- 현재 다음 시작점은 `Phase 6 KPI 계산과 Result Asset Base 구현`이다
+- 즉 아직 `Phase 6 ~ Phase 10`은 공식 완료 상태가 아니다
+- `Phase 6`부터는 `C:\sfe_master_ops` 원본 Python/Streamlit 프로젝트를 참고해
+  KPI 계산 -> result asset -> validation -> builder 흐름을 웹용 백엔드로 옮긴다
 
 최근 검증 메모:
 
@@ -195,21 +182,18 @@
 - `daon_pharma`
 - `monthly_merge_pharma`
 
-위 3개 회사는 validation까지 실제 검증했다.
+위 3개 회사는 intake / normalization까지 실제 검증했다.
 현재 공통 해석은 아래와 같다.
 
-- `CRM / Sandbox / Prescription`은 통과
-- `Territory`는 FAIL
-- 전체 상태는 `WARN`
-
-이 결과는 현재 버그라기보다,
-로우 생성기 기반 테스트 데이터라 동선 최적화 재료가 약해서 나온 정상 결과로 본다.
-
-추가 메모:
-
-- 위 해석은 `validation 단계` 기준이다
-- 이후 `daon_pharma` 기준 Builder 복원 작업으로
-  `Territory` 화면 자체는 월/일 선택, 병원 마커, 목표금액, 달성률까지 정상 동작을 다시 확인했다
+- `daon_pharma`
+  - intake `ready`
+  - normalization 결과 생성 확인
+- `company_000002`
+  - dirty raw 기준 회사로 사용
+  - 공통 분석 구간 `202504 ~ 202506`
+  - 실행용 staging 보강 후 normalization 결과 생성 확인
+- `monthly_merge_pharma`
+  - 월별 병합 -> intake -> `_intake_staging` -> normalization 흐름 확인
 
 현재 구현 진행사항 상세는 아래 문서만 기준으로 본다.
 

@@ -702,7 +702,7 @@ sales_os/
 
 - 원본 데이터가 intake 단계로 안정적으로 들어올 수 있음
 
-### [ ] Phase 4. 입력 검증 구현
+### [x] Phase 4. 입력 검증 구현
 
 구현 시 먼저 볼 설계 문서:
 
@@ -716,6 +716,7 @@ sales_os/
   - intake analyze / result / confirm
 - `docs/summary/intake_column_dictionary_intake_normalization_audit_20260331.md`
   - intake 검증, 자동보정, 컬럼 사전 요약
+  
 
 목적:
 
@@ -760,7 +761,7 @@ sales_os/
 - 따라서 `Phase 4`부터 다시 시작하며,
   이 단계의 공식 구현 기준은 `원본 Python intake 로직을 현재 저장 구조에 맞게 연결`하는 것이다
 
-### [ ] Phase 5. 정규화 구현
+### [x] Phase 5. 정규화 구현
 
 구현 시 먼저 볼 설계 문서:
 
@@ -807,7 +808,7 @@ sales_os/
 - 결과 저장 경로가 현재 `sales_os` 구조와 다르더라도,
   계산/표준화 규칙은 원본 Python을 단일 소스로 유지한다
 
-### [ ] Phase 5-1. 지저분한 raw 대응 보강
+### [x] Phase 5-1. 지저분한 raw 대응 보강
 
 구현 시 먼저 볼 설계 문서:
 
@@ -968,6 +969,14 @@ Phase 5-1 체크리스트:
 - [x] normalization 재실행
 - [x] 표준화 결과 확인
 - [x] 자동 처리 / 사람 검토 분기 결과 문서화
+  - 자동 처리:
+    - alias exact match 또는 저장된 매핑 재사용으로 의미 필드가 바로 확정되는 경우
+    - 공백/BOM/중복 행/월 형식 보정 뒤에도 실행 가능성이 유지되는 경우
+    - 실행용 canonical column 또는 execution-ready staging source를 자동 생성할 수 있는 경우
+  - 사람 검토:
+    - 필수 의미 필드가 끝까지 확정되지 않는 경우
+    - `company_000002`처럼 raw 원본만으로 `account_id` 계열이 부족해 intake 결과가 `needs_review`로 남는 경우
+    - 이 경우도 가능한 범위에서는 `_intake_staging` 생성과 normalization까지 진행하고, 부족 사유는 `_onboarding` 결과와 마지막 결과 설명으로 넘긴다
 
 Phase 5-1 월별 raw 병합 체크리스트:
 
@@ -1039,6 +1048,11 @@ Phase 5-1 월별 raw 병합 체크리스트:
 - [x] 세로 병합
 - [x] 병합 결과를 공식 raw 경로에 다시 저장
 - [x] 업로드로 직접 들어온 파일이 있으면 월별 병합보다 우선할지 규칙 고정
+  - 현재 공식 규칙:
+    - `Phase 5-1` 기준 기본 동작은 `monthly_raw -> merged raw`를 다시 생성하는 흐름을 우선한다
+    - 즉 월별 업로드가 존재하면 intake / normalization 시작 전에 merged raw를 다시 만든다
+    - 직접 업로드된 기존 raw가 있더라도, 월별 세트가 더 최신 운영 입력이면 병합 결과를 공식 raw로 덮어쓴다
+    - 이후 필요하면 `prefer_existing_merged=true` 같은 예외 옵션을 worker/runtime 단계에서만 별도 검토한다
 - [x] 병합 결과 요약 메타 저장
 - [x] 병합에 사용한 월 목록 저장
 - [x] source별 병합 행 수 저장
@@ -1058,7 +1072,24 @@ Phase 5-1 월별 raw 병합 체크리스트:
 - [x] 월별 합계와 merged 결과 행 수가 맞는지 테스트
 - [x] 병합 후 표준화 결과가 생성되는지 테스트
 - [x] `monthly_merge_pharma` 실데이터 기준 검증 절차 문서화
+  - 검증 절차:
+    1. `python .\\scripts\\intake\\inspect_monthly_raw.py --company-key monthly_merge_pharma`
+    2. `python .\\scripts\\intake\\merge_monthly_raw.py --company-key monthly_merge_pharma`
+    3. `python .\\scripts\\intake\\analyze.py --company-key monthly_merge_pharma`
+    4. `python .\\scripts\\normalization\\normalize_all.py --company-key monthly_merge_pharma`
+    5. 필요 시 `python .\\scripts\\smoke\\validate_phase5_1.py`
+  - 기대 결과:
+    - 월 토큰 `202501 ~ 202506` 확인
+    - merged raw 생성
+    - intake `ready` 또는 `ready_with_fixes`
+    - `_intake_staging` 생성
+    - `data/standardized/monthly_merge_pharma/` 아래 모듈별 표준 결과 생성
 - [x] raw 생성기 전체 이식은 후순위로 두고, 월별 병합 엔진 이식이 먼저라는 우선순위 명시
+  - 현재 우선순위:
+    1. 실제 운영 입력을 끝까지 통과시키는 Python monthly merge / intake / staging / normalization
+    2. 그 다음 KPI / result asset / validation / builder
+    3. raw generator 전체 이식은 마지막 보조 작업
+  - 즉 현재 웹 전환 단계에서는 `C:\\sfe_master_ops`의 Streamlit 기반 raw generator 전체보다, 실제 운영 데이터 처리 엔진 이식이 먼저다
 
 Phase 5-1 후속 운영 메모:
 

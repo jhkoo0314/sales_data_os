@@ -24,12 +24,12 @@
 - `Phase 1. 기반 고정`
 - `Phase 2. 앱 프레임과 디자인 베이스`
 - `Phase 3. 입력 수용 구현`
-
-현재 재시작 대상으로 보는 Phase:
-
 - `Phase 4. 입력 검증 구현`
 - `Phase 5. 정규화 구현`
 - `Phase 5-1. 지저분한 raw 대응 보강`
+
+현재 재시작 대상으로 보는 Phase:
+
 - `Phase 6. KPI 계산과 Result Asset Base 구현`
 - `Phase 7. validation 구현`
 - `Phase 8. payload 조립 구현`
@@ -39,7 +39,7 @@
 
 현재 다음 시작점:
 
-- `Phase 4. 입력 검증 구현`
+- `Phase 6. KPI 계산과 Result Asset Base 구현`
 
 현재 저장소 기준 실제 상태:
 
@@ -85,6 +85,16 @@
 - 과거 TypeScript 구현과 API는 삭제했다
 - 현재 공식 구현물로 보지 않는다
 - 다음 구현은 원본 Python intake/service 규칙 기준으로 다시 시작한다
+- `2026-04-02` Python intake 재구현 시작
+  - `modules/intake/rules.py`
+  - `modules/intake/fixers.py`
+  - `modules/intake/suggestions.py`
+  - `modules/intake/service.py`
+  - `scripts/intake/analyze.py`
+  - `_onboarding/intake_result.latest.json`, source별 onboarding package, `company_onboarding_registry.json` 저장 연결
+  - 실검증:
+    - `daon_pharma` -> `ready`, `ready_for_adapter=true`
+    - `company_000002` -> `needs_review`, 공통 분석 구간 `202504 ~ 202506`
 
 구현 내용:
 
@@ -116,6 +126,23 @@
 - 과거 TypeScript 구현과 API는 삭제했다
 - 현재 공식 구현물로 보지 않는다
 - 다음 구현은 원본 Python normalization / adapter 기준으로 다시 시작한다
+- `2026-04-02` Python normalization 재구현 시작
+  - `modules/intake/staging.py`
+  - `modules/normalization/service.py`
+  - `scripts/normalization/normalize_all.py`
+  - `scripts/normalization/normalize_crm.py`
+  - `scripts/normalization/normalize_sandbox.py`
+  - `scripts/normalization/normalize_prescription.py`
+  - `scripts/normalization/normalize_territory.py`
+  - `_intake_staging` 생성 연결
+  - `data/standardized/{company_key}/{module}/` 아래 표준 결과와 `normalization_report.json` 생성 연결
+  - 실검증:
+    - `daon_pharma` -> CRM / Sandbox / Prescription / Territory 표준 결과 생성
+    - `company_000002` -> CRM 활동 기준 실행용 assignment/account master 합성 후 표준 결과 생성
+  - 검증 구조 정리:
+    - 빠른 pytest: `tests/test_phase5_1.py`
+    - 실데이터 스모크 검증: `scripts/smoke/validate_phase5_1.py`
+    - 빠른 pytest 최근 결과: `11 passed`
 
 구현 내용:
 
@@ -162,7 +189,7 @@
 
 ### Phase 5-1. 지저분한 raw 대응 보강
 
-완료 기준으로 반영된 내용:
+현재 보류 상태 메모:
 
 - 월별 raw 병합 서비스 추가
 - 공식 월별 입력 경로를 `data/company_source/{company_key}/monthly_raw/YYYYMM/` 기준으로 읽도록 연결
@@ -175,12 +202,12 @@
 
 현재 해석:
 
-- `Phase 5-1`은 완료로 본다
-- 기준은 아래 3가지다
-  - dirty raw가 `ready_with_fixes` 또는 `completed_with_review`까지 실제로 이어진다
-  - `monthly_raw -> merged raw -> intake -> _intake_staging -> normalization` 흐름이 실제 테스트와 실데이터 검증으로 확인됐다
-  - 자동보정 / registry / 병합 메타 / 테스트 세트가 함께 고정됐다
-- 남아 있는 일부 항목은 완료 조건이 아니라 운영 기준 문서화 또는 후속 정리 메모로 본다
+- `Phase 5-1`은 현재 완료로 본다
+- 완료 기준:
+  - dirty raw 기준 회사 `company_000002`로 intake / staging / normalization 재검증 완료
+  - `monthly_merge_pharma` 기준 월별 병합 -> intake -> `_intake_staging` -> normalization 검증 완료
+  - 빠른 pytest와 실데이터 스모크 검증 구조를 분리해 운영 가능한 검증 체계를 고정
+  - 남는 일은 `Phase 6` 이후 결과 설명 고도화이며, `Phase 5-1` 자체의 입구 보강 범위는 완료로 본다
 
 `2026-03-31` `company_000002` 실검증 메모:
 
