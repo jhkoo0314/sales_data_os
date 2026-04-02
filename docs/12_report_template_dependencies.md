@@ -6,7 +6,7 @@
 ## 목적
 
 이 문서는
-`workers/templates/reports/`
+`templates/`
 안의 보고서 템플릿을 실제로 확인한 뒤,
 
 - Python 패키지로 필요한 것
@@ -18,7 +18,7 @@
 ## 확인한 템플릿
 
 - `crm_analysis_template.html`
-- `sandbox_report_template.html`
+- `report_template.html`
 - `prescription_flow_template.html`
 - `territory_optimizer_template.html`
 - `radar_report_template.html`
@@ -119,9 +119,9 @@ Python 패키지가 아니지만,
 
 ### 1. 템플릿 위치
 
-현재 위치 유지:
+현재 위치:
 
-- `workers/templates/reports/`
+- `templates/`
 
 이유:
 
@@ -132,9 +132,9 @@ Python 패키지가 아니지만,
 
 권장 폴더:
 
-- `workers/templates/assets/js/`
-- `workers/templates/assets/css/`
-- `workers/templates/assets/fonts/`
+- `templates/assets/js/`
+- `templates/assets/css/`
+- `templates/assets/fonts/`
 
 ### 3. CDN 의존 축소
 
@@ -159,5 +159,5 @@ Python 패키지가 아니지만,
 
 - 템플릿 렌더 핵심은 `jinja2`
 - 동적 차트/스크립트 실행 때문에 `playwright` 포함이 안전
-- 템플릿 위치는 `workers/templates/reports/` 유지가 맞음
+- 템플릿 위치는 `templates/` 유지가 맞음
 - 장기적으로는 CDN 의존을 로컬 자산으로 치환하는 것이 좋다

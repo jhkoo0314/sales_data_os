@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from uuid import uuid4
 
+from common.company_runtime import get_company_root
 from .execution_models import ExecutionContext, ExecutionRunResult, ExecutionStepResult
 from .execution_registry import get_execution_mode_modules
 
@@ -97,14 +98,6 @@ def _run_module_step(root: Path, module: str) -> dict:
         "radar": "validate_radar_with_ops.py",
         "builder": "validate_builder_with_ops.py",
     }
-    summary_map = {
-        "crm": root / "data" / "ops_validation",
-        "prescription": root / "data" / "ops_validation",
-        "sandbox": root / "data" / "ops_validation",
-        "territory": root / "data" / "ops_validation",
-        "radar": root / "data" / "ops_validation",
-        "builder": root / "data" / "ops_validation",
-    }
     script_name = script_map[module]
     command = [sys.executable, str(root / "scripts" / script_name)]
     result = subprocess.run(command, cwd=root, capture_output=True, text=True)
@@ -116,9 +109,10 @@ def _run_module_step(root: Path, module: str) -> dict:
         }
 
     company_key = _extract_company_key(root)
-    summary_path = summary_map[module] / company_key / module / f"{module}_validation_summary.json"
+    validation_root = get_company_root(root, "ops_validation", company_key)
+    summary_path = validation_root / module / f"{module}_validation_summary.json"
     if module == "builder":
-        summary_path = summary_map[module] / company_key / "builder" / "builder_validation_summary.json"
+        summary_path = validation_root / "builder" / "builder_validation_summary.json"
     if summary_path.exists():
         return json.loads(summary_path.read_text(encoding="utf-8"))
     return {"quality_status": "pass", "quality_score": 100.0, "reasoning_note": f"{module} 실행 완료"}

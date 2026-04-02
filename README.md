@@ -51,6 +51,21 @@
 
 - `Phase 10` Worker Runtime 구현
 
+`2026-04-02` 최신 진행 메모:
+
+- `Phase 10` 착수 완료
+  - `workers/run_worker.py`
+  - `workers/services/run_executor.py`
+  - `workers/services/status_updater.py`
+  - `pending -> running -> completed/failed` 상태 갱신 연결
+- Supabase 스키마 마이그레이션 완료
+  - 기준 파일: `supabase/sales_os_supabase_schema.sql`
+  - 핵심 테이블 확인: `pipeline_runs`, `pipeline_run_steps`, `runs`, `run_steps`, `run_artifacts`, `run_report_context`, `agent_chat_logs`, `company_registry`
+- 테스트 run 1회 실행으로 DB 저장 확인
+  - `pipeline_runs` 상태 갱신 확인
+  - `pipeline_run_steps` 단계 기록 저장 확인
+  - builder 단계 path 이슈 수정 후 `PASS` 확인
+
 중요:
 
 - 현재 저장소는 `Phase 10부터 Python 백엔드 로직 기준으로 계속 구현하는 상태`다

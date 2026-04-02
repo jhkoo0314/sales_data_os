@@ -5,10 +5,18 @@ from pathlib import Path
 
 
 def get_active_company_key(default: str = "") -> str:
+    company_key = os.environ.get("COMPANY_KEY", "").strip()
+    if company_key:
+        return company_key
+    # Backward compatibility: keep reading legacy env key if present.
     return os.environ.get("OPS_COMPANY_KEY", default).strip() or default
 
 
 def get_active_company_name(default: str | None = None) -> str:
+    name = os.environ.get("COMPANY_NAME", "").strip()
+    if name:
+        return name
+    # Backward compatibility: keep reading legacy env key if present.
     name = os.environ.get("OPS_COMPANY_NAME", "").strip()
     if name:
         return name
@@ -22,7 +30,10 @@ def get_company_root(root: Path, bucket: str, company_key: str | None = None) ->
     if bucket == "company_source":
         # The intake runtime can temporarily override the source root so
         # adapters read staged inputs instead of original raw files.
-        override_root = os.environ.get("OPS_COMPANY_SOURCE_ROOT", "").strip()
+        override_root = os.environ.get("COMPANY_SOURCE_ROOT", "").strip()
+        if not override_root:
+            # Backward compatibility: keep reading legacy env key if present.
+            override_root = os.environ.get("OPS_COMPANY_SOURCE_ROOT", "").strip()
         if override_root:
             return Path(override_root)
 

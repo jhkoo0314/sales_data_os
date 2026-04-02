@@ -150,31 +150,43 @@
 - `Phase 4`: 입력 검증 구현 완료
 - `Phase 5`: 정규화 구현 완료
 - `Phase 5-1`: 지저분한 raw 대응 보강 완료
+- `Phase 6`: KPI 계산과 Result Asset Base 구현 완료
+- `Phase 7`: validation 구현 완료
+- `Phase 8`: payload 조립 구현 완료
+- `Phase 9`: Builder preview 구현 완료
 - 현재 코드 기준 반영된 것:
   - Python `intake` 재구현
   - Python `monthly_raw` 병합 엔진 연결
   - Python `_intake_staging` 생성 연결
-  - Python `data/standardized/{company_key}/{module}` 생성 연결
+  - Python `data/standard/{company_key}/{module}` 생성 연결
+  - Python `data/validation/{company_key}/{module}` 생성 연결
   - 빠른 pytest와 실데이터 smoke 검증 구조 분리
-- 다음 우선순위: `Phase 6` 백엔드 구현
-- 그 다음: `Phase 7 ~ Phase 10`
-- 이후: `Phase 11 ~ Phase 14` 프론트 연결
+- 다음 우선순위: `Phase 10` Worker Runtime 구현
+- 그 다음: `Phase 11 ~ Phase 14` 프론트 연결
 - 이후: `Phase 15 ~ Phase 18` 확장 및 안정화
 
-`Phase 6` 참고 문서 우선순위:
+`2026-04-02` 최신 반영:
+
+- `Phase 10`은 착수 상태다
+  - worker runtime 최소 뼈대 생성
+  - Supabase `pending -> running -> completed/failed` 상태 전환 연결
+  - 테스트 run 기준 DB 저장 확인
+
+`Phase 10` 참고 문서 우선순위:
 
 1. `docs/task.md`
 2. `docs/current_implementation_status.md`
-3. `docs/summary/phase6_kpi_engine_and_result_asset_research_20260331.md`
-4. `docs/summary/original_project_result_asset_payload_artifact_research_20260331.md`
-5. `workers/templates/reports/`
+3. `docs/summary/original_project_worker_runtime_research_20260331.md`
+4. `docs/summary/original_project_validation_layer_research_20260331.md`
+5. `docs/summary/original_project_builder_operation_research_20260331.md`
+6. `templates/`
 
 현재 구현 해석:
 
-- 현재 다음 시작점은 `Phase 6 KPI 계산과 Result Asset Base 구현`이다
-- 즉 아직 `Phase 6 ~ Phase 10`은 공식 완료 상태가 아니다
-- `Phase 6`부터는 `C:\sfe_master_ops` 원본 Python/Streamlit 프로젝트를 참고해
-  KPI 계산 -> result asset -> validation -> builder 흐름을 웹용 백엔드로 옮긴다
+- 현재 다음 시작점은 `Phase 10 Worker Runtime 구현`이다
+- `Phase 1 ~ Phase 9`는 공식 완료 상태다
+- 이제 worker가 run 단위로 아래 순서를 오케스트레이션해야 한다
+  - intake -> normalization -> kpi -> validation -> payload -> builder
 
 최근 검증 메모:
 
@@ -186,8 +198,8 @@
 현재 공통 해석은 아래와 같다.
 
 - `daon_pharma`
-  - intake `ready`
-  - normalization 결과 생성 확인
+  - `integrated_full` 실행 성공
+  - `crm`, `prescription`, `sandbox`, `territory`, `radar`, `builder` PASS
 - `company_000002`
   - dirty raw 기준 회사로 사용
   - 공통 분석 구간 `202504 ~ 202506`

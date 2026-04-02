@@ -1321,13 +1321,13 @@ Phase 5-1 후속 운영 메모:
   - 원본 프로젝트 builder 운영 조사 요약
 - `docs/summary/original_project_result_asset_payload_artifact_research_20260331.md`
   - builder 산출물 / artifact 구조 요약
-- `workers/templates/reports/`
+- `templates/`
   - 현재 `sales_os` 템플릿 실제 경로
-  - `workers/templates/reports/crm_analysis_template.html`
-  - `workers/templates/reports/sandbox_report_template.html`
-  - `workers/templates/reports/territory_optimizer_template.html`
-  - `workers/templates/reports/prescription_flow_template.html`
-  - `workers/templates/reports/radar_report_template.html`
+  - `templates/crm_analysis_template.html`
+  - `templates/report_template.html`
+  - `templates/territory_optimizer_template.html`
+  - `templates/prescription_flow_template.html`
+  - `templates/radar_report_template.html`
 
 목적:
 
@@ -1357,7 +1357,7 @@ Phase 5-1 후속 운영 메모:
 - 템플릿 계약 복원 작업은 유지 가능하지만,
   수치 일치 검증은 Python 결과 기준으로 다시 수행한다
 
-### [ ] Phase 10. Worker Runtime 구현
+### [x] Phase 10. Worker Runtime 구현
 
 구현 시 먼저 볼 설계 문서:
 
@@ -1394,6 +1394,20 @@ Phase 5-1 후속 운영 메모:
 완료 기준:
 
 - 웹에서 run을 만들면 worker가 실제 엔진 순서를 실행함
+
+`2026-04-02` 진행 메모:
+
+- 최소 worker runtime 파일 생성 완료
+  - `workers/run_worker.py`
+  - `workers/services/run_executor.py`
+  - `workers/services/status_updater.py`
+- Supabase polling 상태 전환 연결 완료
+  - `pending -> running -> completed/failed`
+- 테스트 run으로 DB 저장 검증 완료
+  - `pipeline_runs` 상태 전환 기록 확인
+  - `pipeline_run_steps` 단계 저장 확인
+- builder 단계 path 이슈 수정 완료
+  - 재검증에서 builder `PASS` 확인
 
 재시작 기준 메모:
 

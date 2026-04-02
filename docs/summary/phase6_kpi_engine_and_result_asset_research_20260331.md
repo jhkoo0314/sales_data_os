@@ -5,7 +5,7 @@
 ## 1. 한 줄 결론
 
 - `sales_os`의 Phase 6은 먼저 `원본 KPI 엔진 -> 모듈 service -> result asset` 순서로 따라가는 것이 가장 안전하다.
-- `workers/templates/reports`는 계산식의 기준이 아니라, 이미 계산된 값을 어떤 상자 형태로 넘겨야 하는지 확인하는 용도로만 써야 한다.
+- `templates/`는 계산식의 기준이 아니라, 이미 계산된 값을 어떤 상자 형태로 넘겨야 하는지 확인하는 용도로만 써야 한다.
 - 구현 순서는 `CRM -> Sandbox -> Territory/Prescription -> RADAR 참고`가 가장 안정적이다.
 
 ## 2. 모듈별 조사 결과

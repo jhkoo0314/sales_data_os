@@ -32,6 +32,36 @@
   - `radar_report_preview.html`
   - `total_valid_preview.html`
 
+`2026-04-02` Phase 10 착수 메모:
+
+- worker runtime 최소 뼈대를 추가했다
+  - `workers/run_worker.py`
+  - `workers/services/run_executor.py`
+  - `workers/services/status_updater.py`
+- 현재 동작 범위:
+  - Supabase `pending` run polling
+  - `pending -> running -> completed/failed` 상태 갱신
+  - 실행 결과 step 요약을 step table에 저장 시도
+- 현재 실행 기준:
+  - `python workers/run_worker.py --once`
+  - Supabase 미설정 상태에서는 안내 문구를 출력하고 종료
+
+`2026-04-02` Phase 10 검증 메모:
+
+- Supabase 스키마 마이그레이션 완료
+  - 기준 파일: `supabase/sales_os_supabase_schema.sql`
+  - 테이블 조회 확인:
+    - `company_registry`
+    - `runs`, `run_steps`, `run_artifacts`, `run_report_context`, `agent_chat_logs`
+    - `pipeline_runs`, `pipeline_run_steps`
+- 테스트 pending run을 생성한 뒤 worker 1회 실행으로 DB 저장 확인
+  - `pipeline_runs`: `pending -> running -> completed` 전환 확인
+  - `pipeline_run_steps`: 6단계(step) 저장 확인
+- builder 단계 초기 FAIL 원인과 조치
+  - 원인: worker가 builder summary를 과거 경로(`ops_validation`)에서 읽던 경로 불일치
+  - 조치: `modules/validation/workflow/execution_service.py` 경로 해석을 `get_company_root(..., "ops_validation", company_key)` 기준으로 수정
+  - 결과: 재실행 기준 builder 단계 `PASS` 확인
+
 ## 1. 이 문서의 목적
 
 이 문서는 지금까지 무엇을 구현했는지,
@@ -436,13 +466,13 @@
   - `docs/summary/original_project_result_asset_payload_artifact_research_20260331.md`
 
 4. `Phase 9`
-- `workers/templates/reports/` 템플릿에 실제 payload를 주입하는 단계
+- `templates/` 템플릿에 실제 payload를 주입하는 단계
 - 참고 경로:
-  - `workers/templates/reports/crm_analysis_template.html`
-  - `workers/templates/reports/sandbox_report_template.html`
-  - `workers/templates/reports/territory_optimizer_template.html`
-  - `workers/templates/reports/prescription_flow_template.html`
-  - `workers/templates/reports/radar_report_template.html`
+  - `templates/crm_analysis_template.html`
+  - `templates/report_template.html`
+  - `templates/territory_optimizer_template.html`
+  - `templates/prescription_flow_template.html`
+  - `templates/radar_report_template.html`
 
 5. `Phase 10`
 - worker가 `intake -> normalization -> kpi -> validation -> payload -> builder` 순서를 한 run으로 묶는 단계
@@ -763,7 +793,7 @@
   - preview용 `input_standard`, `payload_standard`, `result_asset`를 같이 저장한다
   - Builder는 계산하지 않는다
 - 실행 스크립트를 추가했다
-  - `scripts/builder/render_previews.py`
+  - `scripts/validate_builder_with_ops.py`
 - 현재 생성되는 대표 파일:
   - `data/validation/{company_key}/builder/crm_analysis_preview.html`
   - `data/validation/{company_key}/builder/sandbox_report_preview.html`
@@ -779,7 +809,7 @@
   - `tests/test_phase6_kpi.py` 안 builder preview 통합 테스트 확장
 - 검증:
   - `python -m pytest tests/test_phase6_kpi.py` 통과
-  - `python scripts/builder/render_previews.py --company-key daon_pharma` 실행 확인
+  - `$env:OPS_COMPANY_KEY='daon_pharma'; python scripts/validate_builder_with_ops.py` 실행 확인
 - 현재 해석:
   - `Phase 9`는 payload만 읽는 Builder preview 생성 기준으로 완료로 본다
   - 다음 시작점은 `Phase 10 Worker Runtime 구현`이다

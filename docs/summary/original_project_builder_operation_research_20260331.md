@@ -450,9 +450,9 @@ Builder와 run bundle 단계에서 확인된 파일:
 ### 웹에 맞게 새로 계약해야 할 것
 
 1. 템플릿 위치
-- 문서 기준은 `workers/templates/reports/`
-- 실제 원본 구현은 `templates/`
-- 웹 프로젝트에서는 worker/renderer 위치를 다시 확정해야 한다.
+- 현재 기준 템플릿 경로는 `templates/`
+- 과거 문서의 `workers/templates/reports/` 표기는 레거시 표기다
+- 웹 프로젝트에서는 `templates/` 기준으로 유지한다
 
 2. 템플릿 엔진 방식
 - 참고 문서는 `jinja2` + `playwright`를 말하지만, 원본 코드의 실제 HTML 주입은 `정규식 치환 + inline script/window 변수`였다.
@@ -529,8 +529,8 @@ Builder와 run bundle 단계에서 확인된 파일:
 이번 조사에서 확인된 차이:
 
 1. 템플릿 위치 차이
-- 참고 문서: `workers/templates/reports/`
-- 실제 원본 구현: `templates/`
+- 과거 참고 문서: `workers/templates/reports/`
+- 현재/원본 구현: `templates/`
 
 2. 템플릿 이름 차이
 - 참고 문서에는 `sandbox_report_template.html`

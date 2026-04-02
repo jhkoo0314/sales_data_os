@@ -780,6 +780,21 @@
             };
         }
 
+        function fgrPercentToScore(fgrPercent) {
+            const minGrowth = -10;
+            const maxGrowth = 10;
+            const growth = Number(fgrPercent || 0);
+            if (growth <= minGrowth) return 0;
+            if (growth >= maxGrowth) return 100;
+            return ((growth - minGrowth) / (maxGrowth - minGrowth)) * 100;
+        }
+
+        function formatSignedPercent(value) {
+            const num = Number(value || 0);
+            const sign = num > 0 ? '+' : '';
+            return `${sign}${num.toFixed(1)}%`;
+        }
+
         function setBranchLoadStatus(message, isError = false) {
             const statusEl = document.getElementById('branchLoadStatus');
             if (!statusEl) return;
@@ -977,6 +992,7 @@
                 const layer1 = resolveLayer1Metric(payload, periodMode, idx);
                 const ach = Number(layer1.attainment_rate || 0).toFixed(1) + '%';
                 const gap = Number(layer1.gap_million || 0);
+                const fgr = Number(layer1.fgr || 0);
                 const headerSlot = resolveSlot('header_kpi_slot', { scopeData: payload, periodMode, idx });
                 const official = (headerSlot.blockId === 'official_kpi_6') ? (headerSlot.data || {}) : {};
                 const officialAch = Number(official.monthly_attainment_rate || 0);
@@ -987,7 +1003,7 @@
                 setMetric(1, '목표 달성률', achValue, 'text-blue-700', '#2563eb');
                 setMetric(2, '목표 대비 편차 (백만)', (gap >= 0 ? '+' : '') + gap.toFixed(1), gap >= 0 ? 'text-emerald-600' : 'text-rose-600', gap >= 0 ? '#10b981' : '#ef4444');
                 setMetric(3, '성과 지수 (PI)', Math.round(Number(layer1.pi || 0)), 'text-amber-600', '#d97706');
-                setMetric(4, '성장률 (FGR)', Math.round(Number(layer1.fgr || 0)), 'text-emerald-600', '#059669');
+                setMetric(4, '성장률 (FGR)', formatSignedPercent(fgr), fgr >= 0 ? 'text-emerald-600' : 'text-rose-600', fgr >= 0 ? '#10b981' : '#ef4444');
                 setMetric(5, '지점 평균 효율', 'CLUSTER', 'text-slate-800 text-xl font-bold mt-2', '#1e293b');
                 const healthText = integrity > 0 ? `${integrity.toFixed(1)}점` : 'STABLE';
                 setMetric(6, '데이터 정합성', healthText, 'text-slate-400 text-xl font-bold mt-2', '#cbd5e1');
@@ -997,7 +1013,7 @@
                 const scale = Number(layer1.scale || 1.0);
                 const fgr = Number(layer1.fgr || 0);
                 setMetric(1, '성과 지수 (PI)', Math.round(Number(layer1.pi || 0)), 'text-blue-700', '#2563eb');
-                setMetric(2, '성장률 (FGR)', Math.round(fgr), fgr >=0 ? 'text-emerald-600' : 'text-rose-600', fgr >=0 ? '#10b981' : '#ef4444');
+                setMetric(2, '성장률 (FGR)', formatSignedPercent(fgr), fgr >=0 ? 'text-emerald-600' : 'text-rose-600', fgr >=0 ? '#10b981' : '#ef4444');
                 setMetric(3, '유효활동 (HIR)', Math.round(m.HIR * scale), 'text-amber-600', '#d97706');
                 setMetric(4, '관계온도 (RTR)', Math.round(m.RTR * scale), 'text-emerald-600', '#059669');
                 setMetric(5, '행동규칙성 (BCR)', Math.round(m.BCR * scale), 'text-slate-800', '#1e293b');
@@ -1024,12 +1040,20 @@
                     : {});
 
             const rL_Short = ['HIR', 'RTR', 'BCR', 'PHR', 'PI', 'FGR'];
-            const rL_Full = ['유효활동(HIR)','관계온도(RTR)','규칙성(BCR)','계획(PHR)','성과지수(PI)','성장률(FGR)'];
+            const rL_Full = ['유효활동(HIR)','관계온도(RTR)','규칙성(BCR)','계획(PHR)','성과지수(PI)','성장률 점수(FGR Score)'];
+            const fgrScore = fgrPercentToScore(Number(layer1.fgr || 0));
             safeNewChart('gRadar', 'chart_g_radar', {
                 type: 'radar',
                 data: {
                     labels: rL_Full,
-                    datasets: [{ label: '현재 지점', data: rL_Short.map(k=>Math.round(summaryAvg[k] || 0)), borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.1)', borderWidth: 2, pointRadius: 2 }]
+                    datasets: [{
+                        label: '현재 지점',
+                        data: rL_Short.map(k => k === 'FGR' ? Math.round(fgrScore) : Math.round(summaryAvg[k] || 0)),
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37,99,235,0.1)',
+                        borderWidth: 2,
+                        pointRadius: 2
+                    }]
                 },
                 options: { responsive: true, maintainAspectRatio: false, scales: { r: { min: 0, max: 100, ticks: { display: false } } }, plugins: { legend: { display: false }, datalabels: { display: true, align: 'top', font: { weight: 'bold', size: 9 }, formatter: Math.round } } }
             });
@@ -1071,13 +1095,20 @@
             document.getElementById('v_coach_action').innerText = m.coach_action;
 
             const rL_Short = ['HIR', 'RTR', 'BCR', 'PHR', 'PI', 'FGR'];
-            const rL_Full = ['유효활동(HIR)','관계온도(RTR)','규칙성(BCR)','계획(PHR)','성과지수(PI)','성장률(FGR)'];
+            const rL_Full = ['유효활동(HIR)','관계온도(RTR)','규칙성(BCR)','계획(PHR)','성과지수(PI)','성장률 점수(FGR Score)'];
+            const memberFgrScore = fgrPercentToScore(Number(layer1.fgr || 0));
             safeNewChart('rRadar', 'chart_r_radar', {
                 type: 'radar',
                 data: {
                     labels: rL_Full,
                     datasets: [
-                        { label: m.성명, data: rL_Short.map(k=>Math.round(m[k] * Number(layer1.scale || 1.0))), borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.2)', borderWidth: 3 },
+                        {
+                            label: m.성명,
+                            data: rL_Short.map(k => k === 'FGR' ? Math.round(memberFgrScore) : Math.round(m[k] * Number(layer1.scale || 1.0))),
+                            borderColor: '#2563eb',
+                            backgroundColor: 'rgba(37,99,235,0.2)',
+                            borderWidth: 3
+                        },
                         { label: '지점 평균', data: rL_Short.map(k=>Math.round((branchAvgSafe || {})[k] || 0)), borderColor: '#94a3b8', borderDash: [4, 4], fill: false }
                     ]
                 },
