@@ -702,7 +702,7 @@ sales_os/
 
 - 원본 데이터가 intake 단계로 안정적으로 들어올 수 있음
 
-### [x] Phase 4. 입력 검증 구현
+### [ ] Phase 4. 입력 검증 구현
 
 구현 시 먼저 볼 설계 문서:
 
@@ -748,7 +748,19 @@ sales_os/
 - 어떤 입력이 왜 진행 가능/보정 필요/검토 필요/차단인지 설명 가능
 - 정규화 단계가 읽을 수 있는 intake 메타와 설명 결과가 남는다
 
-### [x] Phase 5. 정규화 구현
+재시작 결정 메모:
+
+- `2026-04-02` 기준으로 이 단계는 완료 처리에서 제외한다
+- 이유:
+  - 원본 `Sales Data OS`의 intake / staging 흐름은 Python 기준인데,
+    현재 `sales_os`는 일부를 TypeScript 서비스 기준으로 재구성하면서
+    원본과 다른 자동보정 / 실행용 staging 철학이 섞였다
+  - 특히 dirty raw 처리, canonical column 생성, 실행용 assignment/master 보강은
+    원본 Python intake 규칙을 다시 따라가야 한다
+- 따라서 `Phase 4`부터 다시 시작하며,
+  이 단계의 공식 구현 기준은 `원본 Python intake 로직을 현재 저장 구조에 맞게 연결`하는 것이다
+
+### [ ] Phase 5. 정규화 구현
 
 구현 시 먼저 볼 설계 문서:
 
@@ -778,14 +790,24 @@ sales_os/
 
 - KPI 계산 입력 구조가 회사별 차이 없이 통일됨
 
-현재 구현 메모:
+재시작 결정 메모:
 
-- `_intake_staging/{source_key}.json` 생성
-- `data/standardized/{company_key}/{module}/standardized_*.json` 생성
-- 모듈별 `normalization_report.json` 생성
-- 정규화 실행/조회 API 추가
+- `2026-04-02` 기준으로 이 단계는 완료 처리에서 제외한다
+- 이유:
+  - 원본 normalization은 Python adapter / normalize 스크립트 흐름을 기준으로 동작해야 한다
+  - 현재 `sales_os`의 TypeScript 정규화 결과는 저장 형식은 비슷해도,
+    원본 adapter가 만드는 표준 입력과 1:1로 보장되지 않는다
+- 따라서 `Phase 5`는 `Python normalization 로직 연결` 기준으로 다시 구현한다
 
-### [x] Phase 5-1. 지저분한 raw 대응 보강
+재구현 기준:
+
+- `_intake_staging`은 원본처럼 다음 단계의 공식 입력 루트로 사용한다
+- adapter / normalization은 TypeScript 재해석이 아니라
+  원본 Python normalize 절차를 현재 프로젝트 경로와 저장 구조에 맞게 호출한다
+- 결과 저장 경로가 현재 `sales_os` 구조와 다르더라도,
+  계산/표준화 규칙은 원본 Python을 단일 소스로 유지한다
+
+### [ ] Phase 5-1. 지저분한 raw 대응 보강
 
 구현 시 먼저 볼 설계 문서:
 
@@ -826,10 +848,15 @@ sales_os/
 - `_onboarding`, `_intake_staging`, `standardized_*` 결과가 실제 회사 raw 기준으로 다시 생성됨
 - 파이프라인이 끝까지 실행된 뒤 결과 탭에서 부족한 데이터와 보완할 파일/컬럼을 설명할 수 있음
 
-현재 완료 해석:
+재시작 결정 메모:
 
-- `Phase 5-1`은 완료로 본다
-- 남아 있는 일부 메모는 완료 조건이 아니라 운영 기준 정리 또는 후속 문서화 항목이다
+- `2026-04-02` 기준으로 이 단계는 완료 처리에서 제외한다
+- 이유:
+  - dirty raw 자동보정과 월별 raw 병합은 원본에서 Python intake/merge 흐름으로 구현돼 있었다
+  - 현재 `sales_os`는 월별 병합과 dirty raw 대응을 TypeScript 기준으로 옮겼지만,
+    원본 `modules/intake/merge.py`, `modules/intake/service.py`, `modules/intake/fixers.py`
+    흐름을 그대로 따르는 수준까지는 아직 아니다
+- 따라서 이 단계는 `Python intake + merge + staging 규칙 복원` 기준으로 다시 시작한다
 
 현재 바로 해야 하는 세부 작업:
 
@@ -980,6 +1007,14 @@ Phase 5-1 월별 raw 병합 체크리스트:
 5. 실제 검증 절차와 테스트 기준을 잡을 때
 - `docs/summary/original_project_testing_practice_research_20260331.md`
 
+재구현 원칙 추가:
+
+- 월별 raw 병합의 공식 로직은 원본 Python 흐름을 기준으로 한다
+- 흐름은 `monthly_raw -> merged raw -> intake -> _intake_staging -> normalization`으로 유지한다
+- 파일명/폴더명 규칙, 병합 순서, source 우선순위도 원본 조사 문서를 먼저 따른다
+- TypeScript는 업로드 접수와 상태 설명을 맡고,
+  병합 규칙과 실행용 staging 판단은 Python 기준으로 맞춘다
+
 - [x] 원본 프로젝트의 월별 병합 흐름을 현재 프로젝트 기준으로 다시 고정
 - [x] 공식 월별 입력 경로를 `data/company_source/{company_key}/monthly_raw/YYYYMM/`로 고정
 - [x] 월 폴더명은 `YYYYMM`만 허용하도록 점검 규칙 추가
@@ -1031,7 +1066,7 @@ Phase 5-1 후속 운영 메모:
 - `필수 항목 / 있으면 좋은 항목` 구분은 현재 rules와 테스트 기준으로 고정했고, 화면 문구 세분화는 Phase 7 이후 이어서 다듬을 수 있다
 - `monthly_merge_pharma`는 월별 병합 기준 회사 이름으로 유지하고, 실데이터 절차 문서는 후속 운영 문서에서 더 자세히 확장할 수 있다
 
-### [x] Phase 6. KPI 계산과 Result Asset Base 구현
+### [ ] Phase 6. KPI 계산과 Result Asset Base 구현
 
 구현 시 먼저 볼 설계 문서:
 
@@ -1097,33 +1132,29 @@ Phase 5-1 후속 운영 메모:
 
 - 공식 KPI 엔진과 result asset 생성 흐름이 실제로 동작함
 
-현재 진행 메모:
+재시작 결정 메모:
 
-- [x] `src/lib/server/kpi.ts` 추가
-- [x] `src/lib/server/kpi/run.ts`, `types.ts`, `shared.ts`, `crm.ts`, `sandbox.ts`로 분리 시작
-- [x] `CRM KPI -> crm_result_asset.json` 생성
-- [x] `Sandbox KPI 6 -> sandbox_result_asset.json` 생성
-- [x] `Prescription result asset base` 추가
-- [x] `Territory result asset base` 최소 버전 추가
-- [x] `RADAR result asset base` 추가
-- [x] `POST /api/companies/[companyKey]/kpi/run` 추가
-- [x] `GET /api/companies/[companyKey]/kpi/result` 추가
-- [x] `GET /api/companies/[companyKey]/kpi/result/[moduleKey]` 추가
-- [x] `src/lib/server/kpi/kpi.test.ts`로 테스트 이동
-- [x] 모듈별 result API 분리
+- `2026-04-02` 기준으로 이 단계는 완료 처리에서 제외한다
+- 이유:
+  - 현재 구현은 `modules/kpi/*.py` 연결이 아니라
+    `src/lib/server/kpi/*.ts`에서 계산식을 다시 구현한 상태다
+  - 이 방식은 원본 공식 계산과 숫자 차이를 만들 수 있으므로 사용하지 않는다
+- 따라서 `Phase 6`은 전면 재시작한다
 
-Phase 6 저장 경로 메모:
+재구현 원칙:
 
-- 현재 `result asset` 저장은 `data/validation/{company_key}/{module}/` 기준을 유지한다
-- 여기서 `validation`은 Phase 7만 뜻하는 폴더가 아니라,
-  정규화 이후 `result asset -> validation -> payload -> builder` 결과가 누적되는 운영 루트로 해석한다
-- 원본 프로젝트 저장 구조와 현재 백엔드 설계 문서도 이 기준과 맞다
+- 공식 KPI 계산은 반드시 원본 Python 엔진을 단일 소스로 사용한다
+- TypeScript는 Python 실행을 접수하고 결과 파일을 읽어 전달만 한다
+- `crm`, `sandbox`, `territory`, `prescription`, `radar`는
+  계산 재구현이 아니라 `Python 결과물 조립/저장/조회` 역할로만 남긴다
+- `result asset` 저장은 현재 `sales_os` 운영 경로를 유지할 수 있지만,
+  숫자 계산과 공식 판정은 Python 결과를 그대로 사용해야 한다
 
-현재 해석:
+삭제/폐기 대상 원칙:
 
-- `Phase 6`은 완료다
-- `crm`, `sandbox`, `territory`, `prescription`, `radar` result asset 생성이 실제로 동작한다
-- 모듈별 result API 분리까지 끝났다
+- TypeScript 안의 KPI 공식 계산식
+- TypeScript 안의 대체 추정 규칙
+- 원본 Python 결과가 없을 때 임의로 채우는 fallback 계산
 
 ### Phase 6-1. 서버 구조 리팩토링 계획
 
@@ -1206,7 +1237,7 @@ Phase 6 저장 경로 메모:
 - [x] `src/lib/server/intake/intake-normalization.test.ts`
 - [x] 기존 경로는 얇은 연결 파일만 남겨서 현재 import가 바로 깨지지 않게 유지
 
-### [x] Phase 7. validation 구현
+### [ ] Phase 7. validation 구현
 
 구현 시 먼저 볼 설계 문서:
 
@@ -1244,45 +1275,21 @@ Phase 6 저장 경로 메모:
 
 - WARN/FAIL 이유와 근거가 실제 validation 결과에서 옴
 
-현재 진행 메모:
+재시작 결정 메모:
 
-- [x] `src/lib/server/validation/run.ts` 추가
-- [x] `src/lib/server/validation/types.ts` 추가
-- [x] 모듈별 validation summary 생성
-  - `crm_validation_summary.json`
-  - `sandbox_validation_summary.json`
-  - `prescription_validation_summary.json`
-  - `territory_validation_summary.json`
-  - `radar_validation_summary.json`
-- [x] 전체 validation summary 생성
-  - `data/validation/{company_key}/_meta/latest_validation_summary.json`
-- [x] `POST /api/companies/[companyKey]/validation/run` 추가
-- [x] `GET /api/companies/[companyKey]/validation/summary` 추가
-- [x] `src/lib/server/validation/validation.test.ts` 추가
-- [x] `GET /api/companies/[companyKey]/validation/summary/[moduleKey]` 추가
-- [x] 모듈별 summary 조회 API 분리
-- [x] `evidence` 목록 구조 보강
-- [x] `latest_pipeline_summary.json` 저장 연결
-- [x] `runs/{run_id}` 구조 저장 연결
-- [x] `GET /api/companies/[companyKey]/runs/[runId]/summary` 추가
-- [x] `GET /api/companies/[companyKey]/runs/[runId]/artifacts` 추가
-- [x] `GET /api/companies/[companyKey]/runs/[runId]/report-context` 추가
-- [x] `report_context.full.json`, `report_context.prompt.json` 생성
-- [x] `execution_analysis.md` 생성
-- [x] `GET /api/companies/[companyKey]/runs` 추가
-- [x] run list/history API
-- [x] builder 전달용 linked artifacts 확장
-- [x] `src/lib/server/validation/validation-3companies.test.ts` 추가
-- [x] `company_000002`, `daon_pharma`, `monthly_merge_pharma` 3개 회사 validation 실검증
+- `2026-04-02` 기준으로 이 단계는 완료 처리에서 제외한다
+- 이유:
+  - validation은 KPI 이후 전달 판단 레이어인데,
+    앞단 KPI/result asset가 TS 재계산 기준이면 validation도 공식 결과가 아니다
+- 따라서 `Phase 7`은 Python 계산 결과를 입력으로 다시 구현한다
 
-현재 해석:
+재구현 원칙:
 
-- `Phase 7`은 최소 구현 기준으로 완료다
-- 3개 회사 공통 결과는 `CRM / Sandbox / Prescription` 통과, `Territory` 실패, 전체 `WARN`이다
-- 이 결과는 현재 버그라기보다 로우 생성기 기반 테스트 데이터라 동선 최적화 재료가 약해서 나온 정상 결과로 본다
-- 다음 시작점은 `Phase 8. payload 조립 구현`이다
+- validation summary는 Python 계산 결과와 원본 validation 규칙을 기준으로 생성한다
+- TypeScript validation은 새 판정 기준을 만드는 곳이 아니라,
+  Python 결과를 저장/조회/설명하는 역할만 맡는다
 
-### [x] Phase 8. payload 조립 구현
+### [ ] Phase 8. payload 조립 구현
 
 구현 시 먼저 볼 설계 문서:
 
@@ -1316,35 +1323,19 @@ Phase 6 저장 경로 메모:
 
 - Builder 입력 구조가 고정됨
 
-현재 진행 메모:
+재시작 결정 메모:
 
-- [x] `src/lib/server/builder/run.ts` 추가
-- [x] `src/lib/server/builder/types.ts` 추가
-- [x] `src/lib/server/builder.ts` 공개 진입점 추가
-- [x] 모듈별 builder payload 생성
-  - `crm_builder_payload.json`
-  - `sandbox_builder_payload.json`
-  - `territory_builder_payload.json`
-  - `prescription_builder_payload.json`
-  - `radar_builder_payload.json`
-- [x] Builder 입력용 input standard 생성
-  - `data/validation/{company_key}/builder/{module}_builder_input_standard.json`
-- [x] `POST /api/companies/[companyKey]/payload/run` 추가
-- [x] `GET /api/companies/[companyKey]/payload/result` 추가
-- [x] `GET /api/companies/[companyKey]/payload/result/[moduleKey]` 추가
-- [x] run bundle에 payload index 연결
-  - `runs/{run_id}/builder_payload_index.json`
-- [x] `artifacts.index.json`에 `builder_payload`, `builder_input_standard`, `payload_index` 연결
-- [x] `report_context.full.json`, `report_context.prompt.json`에 payload linked artifact 연결
-- [x] `src/lib/server/builder/builder.test.ts` 추가
+- `2026-04-02` 기준으로 이 단계는 완료 처리에서 제외한다
+- 이유:
+  - payload는 앞단 공식 result asset / validation 위에 서야 하는데,
+    현재 앞단이 TS 재계산 기준이므로 payload도 다시 생성해야 한다
 
-현재 해석:
+재구현 원칙:
 
-- `Phase 8`은 완료다
-- Builder가 raw나 KPI를 다시 읽지 않고, `validated result asset + validation summary` 기준 payload만 읽게 되는 구조가 고정됐다
-- 다음 시작점은 `Phase 10`에서 이 흐름을 worker run 단위로 묶는 일이다
+- payload는 Python 계산/validation 결과를 그대로 소비해서 조립한다
+- Builder 입력 표준은 유지하되, 내용 생성 기준은 Python 결과물로 고정한다
 
-### [x] Phase 9. Builder 구현
+### [ ] Phase 9. Builder 구현
 
 구현 시 먼저 볼 설계 문서:
 
@@ -1383,65 +1374,19 @@ Phase 6 저장 경로 메모:
 
 - 실제 Builder 결과물이 생성됨
 
-현재 진행 메모:
+재시작 결정 메모:
 
-- [x] `src/lib/server/builder/render.ts` 추가
-- [x] payload 기준 preview HTML 생성
-  - `crm_analysis_preview.html`
-  - `sandbox_report_preview.html`
-  - `territory_map_preview.html`
-  - `prescription_flow_preview.html`
-  - `radar_report_preview.html`
-- [x] preview 표준 JSON 생성
-  - `*_preview_input_standard.json`
-  - `*_preview_payload_standard.json`
-  - `*_preview_result_asset.json`
-- [x] `builder_validation_summary.json` 생성
-- [x] `total_valid_preview.html` 생성
-- [x] `POST /api/companies/[companyKey]/builder/render` 추가
-- [x] `GET /api/companies/[companyKey]/builder/reports` 추가
-- [x] `GET /api/companies/[companyKey]/builder/reports/[reportType]` 추가
-- [x] `GET /api/companies/[companyKey]/builder/artifacts` 추가
-- [x] run bundle에 builder reports index 연결
-  - `runs/{run_id}/builder_reports_index.json`
-- [x] `artifacts.index.json`에 `builder_html`, `builder_preview_result_asset`, `builder_reports_index` 연결
-- [x] `report_context.full.json`, `report_context.prompt.json`에 builder reports linked artifact 연결
-- [x] `src/lib/server/builder/builder.test.ts`에서 render 검증 추가
+- `2026-04-02` 기준으로 이 단계는 완료 처리에서 제외한다
+- 이유:
+  - Builder는 계산 금지지만, 현재 연결된 payload와 preview가 TS 재계산 기반 결과를 먹고 있다
+  - 따라서 템플릿 주입 구조는 참고하되, 실제 결과 검증은 다시 해야 한다
 
-현재 해석:
+재구현 원칙:
 
-- `Phase 9`는 최소 버전 기준으로 완료다
-- Builder는 이제 payload만 읽어 모듈별 preview HTML과 표준 결과 파일을 실제로 만든다
-- 다음 시작점은 `Phase 10. Worker Runtime 구현`이다
-
-`2026-03-31` 추가 완료 메모:
-
-- [x] CRM 템플릿 계약 기준 payload 재조립
-- [x] CRM lazy-load scope chunk 적용
-- [x] Territory 템플릿 계약 기준 payload 재조립
-- [x] Territory lazy-load rep/month chunk 적용
-- [x] Territory 월 선택 / 일 선택 복원
-- [x] Territory 병원 마커 표시 복원
-- [x] Territory 병원 popup의 `누적목표`, `Attainment` 복원
-- [x] `daon_pharma` 기준 Builder 통합실행 재검증
-
-추가 해석:
-
-- `Phase 9`는 단순 preview 생성 완료를 넘어서
-  현재 프로젝트 경로 기준 주입 구조와 원본 템플릿 계약을 다시 맞춘 상태다
-- `daon_pharma`는 Builder 화면 검증용 기준 회사로 계속 사용한다
-
-`2026-03-31` Prescription 잔여 보정 체크:
-
-- [x] 원본 대비 주요 수치 동기화
-  - `detail_asset_counts.hospital_traces=43414`
-  - `detail_asset_counts.rep_kpis=6360`
-  - `detail_asset_counts.claims=300`
-  - `diagnostics.rule_applied_count=118`
-- [x] `Data Flow Distribution` 값 미세 차이 조정
-- [x] `Ingest Merge` `83 row` 차이 조정 (`42000` 기준 복원)
-- [ ] `RADAR` 템플릿 원본 대조 점검/보정
-- [ ] `total_valid` 템플릿 원본 대조 점검/보정
+- Builder는 계속 render-only를 유지한다
+- 다만 입력 payload는 반드시 Python 계산/validation 결과를 기준으로 다시 만든다
+- 템플릿 계약 복원 작업은 유지 가능하지만,
+  수치 일치 검증은 Python 결과 기준으로 다시 수행한다
 
 ### [ ] Phase 10. Worker Runtime 구현
 
@@ -1480,6 +1425,21 @@ Phase 6 저장 경로 메모:
 완료 기준:
 
 - 웹에서 run을 만들면 worker가 실제 엔진 순서를 실행함
+
+재시작 기준 메모:
+
+- `Phase 4 ~ Phase 9`를 Python 백엔드 로직 기준으로 다시 고정한 뒤 진행한다
+- 이 단계에서 worker는 아래 공식 흐름을 Python 기준으로 실행해야 한다
+  - 업로드 반영
+  - monthly raw 병합
+  - intake / staging
+  - normalization
+  - KPI 계산
+  - validation
+  - payload
+  - builder
+- 즉 `Phase 10`은 단순 polling worker가 아니라
+  `원본 Python 백엔드 절차를 run 단위로 오케스트레이션하는 단계`로 이해한다
 
 ### [ ] Phase 11. 운영 진입 화면 연결
 

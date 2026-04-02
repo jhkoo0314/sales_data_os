@@ -1,6 +1,7 @@
 # Sales Data OS Web - 현재 구현 진행사항
 
 작성일: 2026-03-31  
+최근 업데이트: 2026-04-02  
 업데이트 원칙: **현재 구현 진행사항은 이 문서에만 기록한다.**
 
 ## 1. 이 문서의 목적
@@ -16,25 +17,45 @@
 - 실제 구현 상태 설명은 이 문서에만 누적한다
 - 앞으로 새로운 진행사항은 이 문서만 업데이트한다
 
-## 2. 현재 완료 상태
+## 2. 현재 공식 상태
 
-완료된 Phase:
+현재 공식 완료로 보는 Phase:
 
 - `Phase 1. 기반 고정`
 - `Phase 2. 앱 프레임과 디자인 베이스`
 - `Phase 3. 입력 수용 구현`
+
+현재 재시작 대상으로 보는 Phase:
+
 - `Phase 4. 입력 검증 구현`
 - `Phase 5. 정규화 구현`
 - `Phase 5-1. 지저분한 raw 대응 보강`
-
-아직 남은 Phase:
-
+- `Phase 6. KPI 계산과 Result Asset Base 구현`
+- `Phase 7. validation 구현`
+- `Phase 8. payload 조립 구현`
+- `Phase 9. Builder 구현`
 - `Phase 10. Worker Runtime 구현`
 - `Phase 11 ~ Phase 18`
 
 현재 다음 시작점:
 
-- `Phase 10. Worker Runtime 구현`
+- `Phase 4. 입력 검증 구현`
+
+현재 저장소 기준 실제 상태:
+
+- `Phase 4 ~ Phase 9`에 해당하는 TypeScript 백엔드 구현은 삭제했다
+- 관련 API 라우트도 함께 삭제했다
+- 기존 재생성 가능 산출물도 초기화했다
+  - `data/standardized`
+  - `data/validation`
+  - 회사별 `_intake_staging`
+  - 회사별 `_onboarding`
+- 원본 raw와 `monthly_raw`는 유지 중이다
+
+중요:
+
+- 아래 문서 본문에 남아 있는 `2026-03-31` 완료 기록은 과거 작업 이력 보존용이다
+- 현재 공식 진행 기준은 `Phase 4부터 Python 백엔드 로직 기준 재시작`이다
 
 ## 3. 현재 구현된 백엔드 범위
 
@@ -59,6 +80,12 @@
 
 ### Phase 4. 입력 검증
 
+현재 상태:
+
+- 과거 TypeScript 구현과 API는 삭제했다
+- 현재 공식 구현물로 보지 않는다
+- 다음 구현은 원본 Python intake/service 규칙 기준으로 다시 시작한다
+
 구현 내용:
 
 - intake analyze / result / confirm API
@@ -76,13 +103,19 @@
 
 핵심 파일:
 
-- `src/lib/server/intake/analyze.ts`
-- `src/lib/server/intake/schema.ts`
-- `app/api/companies/[companyKey]/intake/analyze/route.ts`
-- `app/api/companies/[companyKey]/intake/result/route.ts`
-- `app/api/companies/[companyKey]/intake/confirm/route.ts`
+- 현재 없음
+- 재구현 시 기준:
+  - 원본 Python intake/service 규칙
+  - `docs/task.md`
+  - 관련 summary 문서
 
 ### Phase 5. 정규화
+
+현재 상태:
+
+- 과거 TypeScript 구현과 API는 삭제했다
+- 현재 공식 구현물로 보지 않는다
+- 다음 구현은 원본 Python normalization / adapter 기준으로 다시 시작한다
 
 구현 내용:
 
@@ -117,7 +150,11 @@
 
 핵심 파일:
 
-- `src/lib/server/normalization/run.ts`
+- 현재 없음
+- 재구현 시 기준:
+  - 원본 Python normalization 절차
+  - `docs/task.md`
+  - 관련 summary 문서
 - `src/lib/server/shared/tabular-file.ts`
 - `src/lib/server/intake/schema.ts`
 - `app/api/companies/[companyKey]/normalization/run/route.ts`
@@ -284,9 +321,43 @@
 
 바로 다음 작업:
 
-1. `Phase 10. Worker Runtime 구현`
-2. `Phase 11 ~ Phase 14` 프론트 연결
-3. `Phase 15 ~ Phase 18` 확장 및 안정화
+1. `Phase 4 ~ Phase 9` 백엔드 재시작
+2. 그 다음 `Phase 10. Worker Runtime 구현`
+3. 그 다음 `Phase 11 ~ Phase 14` 프론트 연결
+4. 이후 `Phase 15 ~ Phase 18` 확장 및 안정화
+
+`2026-04-02` 재정렬 판단:
+
+- `Phase 3`의 업로드/원본 저장 껍데기는 유지 가능하다
+- 하지만 `Phase 4 ~ Phase 9`는 현재 완료로 볼 수 없다
+- 이유:
+  - 원본 `Sales Data OS`의 intake, monthly merge, normalization, KPI, validation, builder 흐름은 Python 기준인데
+  - 현재 `sales_os`는 중간 단계와 계산 단계를 TypeScript 기준으로 재구성한 부분이 섞여 있다
+  - 특히 KPI/result asset 단계는 `modules/kpi/*.py` 연결이 아니라
+    `src/lib/server/kpi/*.ts` 재계산 방식으로 구현돼 있어 공식 숫자 기준으로 사용할 수 없다
+
+따라서 현재 공식 재시작 기준은 아래와 같다.
+
+1. `Phase 4`
+- Python intake/service 규칙 기준으로 다시 구현
+
+2. `Phase 5`
+- Python normalization / adapter 기준으로 다시 구현
+
+3. `Phase 5-1`
+- Python monthly merge / dirty raw intake / staging 기준으로 다시 구현
+
+4. `Phase 6`
+- Python KPI 엔진 연결 기준으로 다시 구현
+
+5. `Phase 7`
+- Python 계산 결과 기준 validation으로 다시 구현
+
+6. `Phase 8`
+- Python 결과 기준 payload 조립으로 다시 구현
+
+7. `Phase 9`
+- Python 결과 기준 Builder 검증으로 다시 구현
 
 `Phase 6 ~ 10` 문서 기준 정리:
 
@@ -323,6 +394,19 @@
 - 참고 문서:
   - `docs/task.md`
   - `docs/summary/original_project_worker_runtime_research_20260331.md`
+
+`2026-04-02` Phase 6 상태 재판정:
+
+- 기존 `Phase 6 완료` 기록은 더 이상 현재 공식 상태로 보지 않는다
+- 이유:
+  - 공식 KPI 계산은 `modules/kpi/*` Python 엔진이어야 하는데
+  - 현재 구현은 TypeScript 서버 코드가 계산을 다시 하고 있기 때문이다
+- 따라서 `Phase 6`은 `미완료 / 재시작 필요` 상태로 되돌린다
+
+과거 구현 기록 보존 메모:
+
+- 아래 `2026-03-31` 기록은 당시 작업 이력 보존용으로만 남긴다
+- 현재 공식 진행 기준으로는 완료 판정에 사용하지 않는다
 
 `2026-03-31` Phase 6 완료 상태:
 
@@ -378,6 +462,14 @@
 - 검증:
   - `pnpm typecheck` 통과
   - `pnpm test` 통과
+
+`2026-04-02` Phase 7 상태 재판정:
+
+- 기존 `Phase 7 완료` 기록도 현재 공식 상태로 보지 않는다
+- 이유:
+  - validation은 KPI 이후 전달 판단 레이어인데,
+    앞단 KPI/result asset가 TypeScript 재계산 기준이면 validation도 공식 결과가 아니다
+- 따라서 `Phase 7`은 `미완료 / 재시작 필요` 상태로 되돌린다
 
 `2026-03-31` Phase 7 완료 상태:
 
@@ -473,6 +565,14 @@
   - `src/lib/server/validation/validation-3companies.test.ts`
   - `pnpm test` 기준 전체 `18개 테스트` 통과
 
+`2026-04-02` Phase 8 상태 재판정:
+
+- 기존 `Phase 8 완료` 기록도 현재 공식 상태로 보지 않는다
+- 이유:
+  - builder payload는 공식 result asset / validation 결과를 기준으로 조립돼야 하는데,
+    현재 앞단이 TS 재계산 기준이므로 payload 역시 다시 만들어야 한다
+- 따라서 `Phase 8`은 `미완료 / 재시작 필요` 상태로 되돌린다
+
 `2026-03-31` Phase 8 완료 상태:
 
 - `src/lib/server/builder/run.ts`, `src/lib/server/builder/types.ts`를 추가했다
@@ -504,6 +604,14 @@
   - `pnpm typecheck` 통과
   - `pnpm test` 통과
   - 전체 `19개 테스트` 통과
+
+`2026-04-02` Phase 9 상태 재판정:
+
+- 기존 `Phase 9 완료` 기록도 현재 공식 상태로 보지 않는다
+- 이유:
+  - Builder 자체는 render-only여야 맞지만,
+    현재 입력 payload와 preview 검증은 TS 재계산 결과 위에 서 있다
+- 따라서 `Phase 9`는 `미완료 / 재시작 필요` 상태로 되돌린다
 
 `2026-03-31` Phase 9 완료 상태:
 

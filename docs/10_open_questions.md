@@ -133,6 +133,11 @@
 - `uploaded`, `saved`, `validated`, `ready`
 같은 상태를 어디까지 세분화할지
 
+추가 메모:
+
+- (추후 운영 적용) `prescription`을 “약국 실적을 병원 담당자에게 귀속”하는 모델로 확장하려면 `약국-병원(문전) 링크 + 담당자 배정 + 적용기간` 구조가 필요하다.
+  - 정리 문서: `docs/14_pharmacy_hospital_linking_and_rep_assignment.md`
+
 ## 5.2 run 단계 모델
 
 질문:

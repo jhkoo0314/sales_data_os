@@ -24,30 +24,37 @@
 - 문서 동기화 완료
 - 디자인 가이드 및 HTML 시안 정리
 - 핵심 페이지 기본 뼈대 구현
-- `Phase 1 ~ Phase 5` 구현 반영
-- `Phase 5-1. 지저분한 raw 대응 보강` 완료
-- `Phase 6. KPI 계산과 Result Asset Base 구현` 완료
-- `Phase 7. validation 구현` 완료
-- `Phase 8. payload 조립 구현` 완료
-- `Phase 9. Builder 구현` 완료
-- `Phase 9` 템플릿 계약 복원 및 Territory/CRM lazy-load 주입 정상화 완료
-- `Prescription` 원본 대비 주요 수치(`detail_asset_counts`, `rule_applied_count`) 동기화 완료
-- `Prescription` `Data Flow Distribution`, `Ingest Merge 83 row` 차이 보정 완료
+- `Phase 1 ~ Phase 3` 공식 유지
 - 백엔드 로직 설계 문서 완료
 - Python/worker 의존성 파일 정리
 - 보고서 템플릿 검토 및 패키지 기준 정리
+- 원본 raw와 `monthly_raw` 입력 데이터 유지
+- 재생성 가능한 산출물 초기화 완료
+  - `data/standardized`
+  - `data/validation`
+  - 회사별 `_intake_staging`
+  - 회사별 `_onboarding`
+- 기존 TypeScript 백엔드 구현 삭제 완료
+  - `Phase 4 ~ Phase 9`에 해당하던 TS 서버 로직
+  - 관련 API 라우트
 
 다음 구현 우선순위:
 
-- `Phase 10` 백엔드 구현
+- `Phase 4 ~ Phase 9` 백엔드 재시작
 - 구현 순서:
-  - `Phase 10` worker runtime
-- 다음 작업 예정:
-  - `RADAR` 템플릿 점검/보정
-  - `total_valid` 템플릿 점검/보정
-- Supabase 실제 연결
-- Python worker 실제 구현
-- 프론트엔드와 실제 엔진 연결
+  - `Phase 4` 입력 검증
+  - `Phase 5` 정규화
+  - `Phase 5-1` dirty raw / monthly merge
+  - `Phase 6` KPI 계산
+  - `Phase 7` validation
+  - `Phase 8` payload
+  - `Phase 9` builder
+  - 그 다음 `Phase 10` worker runtime
+
+중요:
+
+- 현재 저장소는 `Phase 4부터 Python 백엔드 로직 기준으로 다시 시작하는 상태`다
+- 공식 계산, validation, builder 입력은 TypeScript 재구현이 아니라 원본 Python 로직을 단일 소스로 사용해야 한다
 
 ## 주요 문서
 
@@ -93,25 +100,24 @@
 
 ## 백엔드 우선순위
 
-현재 기준으로는 `Phase 7`까지의 백엔드 핵심 골격이 구현된 상태이므로,
-다음 핵심 작업은 아래 공식 흐름의 뒤쪽 단계를 마무리하는 것이다.
+현재 기준으로는 `Phase 4 ~ Phase 9`를
+원본 Python 백엔드 로직 기준으로 다시 구현하는 것이 우선이다.
 
 `입력 -> 검증 -> 정규화 -> KPI 계산 -> validation -> result asset / payload -> builder`
 
 현재 해석:
 
-- `intake -> normalization -> kpi -> validation -> payload -> builder`는 실제 파일과 API로 동작한다
-- `result asset`는 `data/validation/{company_key}/{module}/` 아래에 생성된다
-- `validation`은 `runs/{run_id}` 기준 요약, 근거, 문맥 파일까지 저장한다
-- `builder`는 payload를 읽어 preview HTML과 표준 결과 파일을 실제로 생성한다
-- `daon_pharma` 기준으로 Territory Builder는 월/일 선택, 병원 마커, 목표금액, 달성률까지 재검증을 마쳤다
-- 다음 구현 시작점은 `Phase 10 worker runtime`이다
+- 업로드 입구와 원본 raw 저장 구조는 남아 있다
+- 기존 TypeScript 백엔드 구현은 삭제했다
+- 기존 산출물도 초기화해서 다시 검증 가능한 상태로 만들었다
+- 다음 구현 시작점은 `Phase 4`다
 
 중요한 원칙:
 
 - 앞단 `검증`은 입력 파일 점검
 - 뒤단 `validation`은 KPI 결과 검증과 전달 판단
 - `Builder`는 계산하지 않고 payload만 읽는다
+- 공식 계산과 병합/정규화 절차는 Python 로직을 기준으로 맞춘다
 
 공식 모듈 구조는 아래 `9개`로 본다.
 
