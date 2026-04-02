@@ -1,179 +1,213 @@
-from __future__ import annotations
+"""
+CRM Module Service - CrmStandardActivity -> CrmResultAsset 생성기
 
-import json
-from pathlib import Path
-from typing import Any
+CRM 모듈의 핵심 처리기.
+adapter가 만든 CrmStandardActivity 목록을 집계하여
+Validation Layer(OPS)에 전달할 CrmResultAsset을 생성한다.
 
-import pandas as pd
+흐름:
+  list[CrmStandardActivity] + list[CompanyMasterStandard]
+  -> CrmResultAsset
+"""
 
-from common.pipeline_paths import ensure_parent, result_asset_root, standardized_root
+from collections import Counter
+from typing import Optional
+
+from modules.crm.schemas import CrmStandardActivity, CompanyMasterStandard
 from modules.kpi.crm_engine import compute_crm_kpi_bundle
-from result_assets.crm_result_asset import CrmResultAsset
+from result_assets.crm_result_asset import (
+    CrmResultAsset,
+    RepBehaviorProfile,
+    MonthlyKpiSummary,
+    ActivityContextSummary,
+    MappingQualitySummary,
+)
+from common.exceptions import MissingResultAssetError
+from modules.crm.builder_payload import build_crm_builder_payload as _build_crm_builder_payload
 
 
-def build_crm_result_asset(company_key: str) -> dict[str, Any]:
-    crm_root = standardized_root(company_key, "crm")
-    activity_path = crm_root / "ops_crm_activity.xlsx"
-    company_master_path = crm_root / "ops_company_master.xlsx"
-    hospital_master_path = crm_root / "ops_hospital_master.xlsx"
+def build_crm_result_asset(
+    activities: list[CrmStandardActivity],
+    company_master: list[CompanyMasterStandard],
+    unmapped_raw_count: int = 0,
+    total_raw_count: int = 0,
+    unmapped_hospital_names: Optional[list[str]] = None,
+    notes: Optional[str] = None,
+) -> CrmResultAsset:
+    """
+    CrmStandardActivity 목록을 받아 CrmResultAsset을 생성합니다.
 
-    activity_frame = pd.read_excel(activity_path, dtype=str).fillna("")
-    company_master_frame = _read_excel_or_empty(company_master_path)
-    hospital_master_frame = _read_excel_or_empty(hospital_master_path)
+    Args:
+        activities: Adapter가 생성한 CrmStandardActivity 목록
+        company_master: 담당자-지점 정보 참조용
+        unmapped_raw_count: 매핑 실패한 raw 활동 건수 (Adapter에서 전달)
+        total_raw_count: 원본 raw 전체 건수 (매핑률 계산용)
+        unmapped_hospital_names: 매핑 실패 병원명 목록
+        notes: 생성 비고
 
-    enriched_activities = _prepare_activity_rows(activity_frame, hospital_master_frame)
-    rep_rows, month_rows, metric_version = compute_crm_kpi_bundle(enriched_activities)
+    Returns:
+        CrmResultAsset
+    """
+    if not activities:
+        raise MissingResultAssetError(
+            "CrmResultAsset을 생성할 활동 데이터가 없습니다.",
+            detail="Adapter 실행 결과가 비어 있습니다. 입력 파일을 확인하세요."
+        )
 
-    result_asset = CrmResultAsset(
-        company_key=company_key,
-        metric_version=metric_version,
-        activity_context=_build_activity_context(activity_frame, company_master_frame, hospital_master_frame),
-        mapping_quality=_build_mapping_quality(activity_frame, hospital_master_frame),
-        behavior_profiles=_build_behavior_profiles(activity_frame),
-        monthly_kpi=_build_monthly_kpi(month_rows),
-        rep_monthly_kpi_11=rep_rows,
-        monthly_kpi_11=month_rows,
-        notes=_build_notes(activity_frame, hospital_master_frame),
+    # ── 1. 담당자 메타 인덱스 구성 ──────────────────────────────────────────
+    rep_meta: dict[str, CompanyMasterStandard] = {}
+    for m in company_master:
+        if m.rep_id not in rep_meta:
+            rep_meta[m.rep_id] = m
+
+    # ── 2. 담당자별 행동 프로파일 집계 ────────────────────────────────────────
+    rep_visits: dict[str, int] = Counter()
+    rep_hospitals: dict[str, set] = {}
+    rep_detail_counts: dict[str, int] = Counter()
+    rep_activity_types_raw: dict[str, list] = {}
+    rep_activity_types_standard: dict[str, list] = {}
+    rep_months: dict[str, set] = {}
+
+    for act in activities:
+        rep_id = act.rep_id
+        rep_visits[rep_id] += act.visit_count
+        rep_hospitals.setdefault(rep_id, set()).add(act.hospital_id)
+        if act.has_detail_call:
+            rep_detail_counts[rep_id] += 1
+        raw_type = str(act.activity_type_raw or "").strip()
+        std_type = str(act.activity_type_standard or act.activity_type or "").strip()
+        if raw_type:
+            rep_activity_types_raw.setdefault(rep_id, []).append(raw_type)
+        if std_type:
+            rep_activity_types_standard.setdefault(rep_id, []).append(std_type)
+        rep_months.setdefault(rep_id, set()).add(act.metric_month)
+
+    behavior_profiles = []
+    all_rep_ids = set(act.rep_id for act in activities)
+
+    for rep_id in all_rep_ids:
+        total_v = rep_visits.get(rep_id, 0)
+        unique_h = len(rep_hospitals.get(rep_id, set()))
+        detail_c = rep_detail_counts.get(rep_id, 0)
+        type_counter_raw = Counter(rep_activity_types_raw.get(rep_id, []))
+        type_counter_standard = Counter(rep_activity_types_standard.get(rep_id, []))
+        top_types_raw = [t for t, _ in type_counter_raw.most_common(3)]
+        top_types_standard = [t for t, _ in type_counter_standard.most_common(3)]
+        months = sorted(rep_months.get(rep_id, set()))
+
+        meta = rep_meta.get(rep_id)
+        profile = RepBehaviorProfile(
+            rep_id=rep_id,
+            rep_name=meta.rep_name if meta else rep_id,
+            branch_id=meta.branch_id if meta else "",
+            branch_name=meta.branch_name if meta else "",
+            total_visits=total_v,
+            unique_hospitals=unique_h,
+            avg_visits_per_hospital=round(total_v / unique_h, 2) if unique_h > 0 else 0.0,
+            detail_call_rate=round(detail_c / max(total_v, 1), 3),
+            top_activity_types=top_types_standard,
+            top_activity_types_raw=top_types_raw,
+            top_activity_types_standard=top_types_standard,
+            active_months=months,
+        )
+        behavior_profiles.append(profile)
+
+    # ── 3. 월별 KPI 집계 ──────────────────────────────────────────────────────
+    month_visits: dict[str, int] = Counter()
+    month_reps: dict[str, set] = {}
+    month_hospitals: dict[str, set] = {}
+    month_details: dict[str, int] = Counter()
+
+    for act in activities:
+        m = act.metric_month
+        month_visits[m] += act.visit_count
+        month_reps.setdefault(m, set()).add(act.rep_id)
+        month_hospitals.setdefault(m, set()).add(act.hospital_id)
+        if act.has_detail_call:
+            month_details[m] += 1
+
+    monthly_kpi = []
+    for month in sorted(month_visits.keys()):
+        active_reps = len(month_reps.get(month, set()))
+        total_v = month_visits[month]
+        kpi = MonthlyKpiSummary(
+            metric_month=month,
+            total_visits=total_v,
+            total_reps_active=active_reps,
+            total_hospitals_visited=len(month_hospitals.get(month, set())),
+            avg_visits_per_rep=round(total_v / active_reps, 2) if active_reps > 0 else 0.0,
+            detail_call_count=month_details.get(month, 0),
+        )
+        monthly_kpi.append(kpi)
+
+    # ── 4. 활동 문맥 요약 ─────────────────────────────────────────────────────
+    all_dates = [act.activity_date for act in activities]
+    all_products: set[str] = set()
+    all_activity_types_raw: set[str] = set()
+    all_activity_types_standard: set[str] = set()
+    for act in activities:
+        all_products.update(act.products_mentioned)
+        raw_type = str(act.activity_type_raw or "").strip()
+        std_type = str(act.activity_type_standard or act.activity_type or "").strip()
+        if raw_type:
+            all_activity_types_raw.add(raw_type)
+        if std_type:
+            all_activity_types_standard.add(std_type)
+
+    activity_context = ActivityContextSummary(
+        total_activity_records=len(activities),
+        date_range_start=str(min(all_dates)) if all_dates else None,
+        date_range_end=str(max(all_dates)) if all_dates else None,
+        unique_reps=len(all_rep_ids),
+        unique_hospitals=len(set(act.hospital_id for act in activities)),
+        unique_branches=len(set(act.branch_id for act in activities)),
+        activity_types_found=sorted(all_activity_types_standard),
+        activity_types_raw_found=sorted(all_activity_types_raw),
+        activity_types_standard_found=sorted(all_activity_types_standard),
+        products_mentioned=sorted(all_products),
     )
 
-    payload = result_asset.to_dict()
-    target_path = result_asset_root(company_key, "crm") / "crm_result_asset.json"
-    ensure_parent(target_path).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    return payload
+    # ── 5. 매핑 품질 요약 ─────────────────────────────────────────────────────
+    mapped_hospital_count = len(set(act.hospital_id for act in activities))
+    unmapped_count = unmapped_raw_count
+    mapped_count_for_rate = len(activities)
+    raw_total = total_raw_count if total_raw_count > 0 else (len(activities) + unmapped_count)
+
+    mapping_quality = MappingQualitySummary(
+        total_raw_records=raw_total,
+        mapped_hospital_count=mapped_hospital_count,
+        unmapped_hospital_count=unmapped_count,
+        hospital_mapping_rate=round(mapped_count_for_rate / raw_total, 3) if raw_total > 0 else 0.0,
+        rep_coverage_rate=round(len(all_rep_ids) / max(len(rep_meta), 1), 3),
+        unmapped_hospital_names=(unmapped_hospital_names or [])[:20],
+    )
+
+    # ── 6. Result Asset 조립 ──────────────────────────────────────────────────
+    rep_monthly_kpi_11, monthly_kpi_11, metric_version = compute_crm_kpi_bundle(activities)
+
+    return CrmResultAsset(
+        behavior_profiles=behavior_profiles,
+        monthly_kpi=monthly_kpi,
+        activity_context=activity_context,
+        mapping_quality=mapping_quality,
+        metric_version=metric_version,
+        rep_monthly_kpi_11=rep_monthly_kpi_11,
+        monthly_kpi_11=monthly_kpi_11,
+        notes=notes,
+    )
 
 
-def _read_excel_or_empty(path: Path) -> pd.DataFrame:
-    if not path.exists():
-        return pd.DataFrame()
-    return pd.read_excel(path, dtype=str).fillna("")
-
-
-def _prepare_activity_rows(activity_frame: pd.DataFrame, hospital_master_frame: pd.DataFrame) -> list[dict[str, Any]]:
-    hospital_lookup: dict[tuple[str, str], dict[str, str]] = {}
-    if not hospital_master_frame.empty:
-        for row in hospital_master_frame.to_dict(orient="records"):
-            key = (str(row.get("account_name", "")).strip(), str(row.get("rep_id", "")).strip())
-            hospital_lookup[key] = row
-
-    prepared: list[dict[str, Any]] = []
-    for row in activity_frame.to_dict(orient="records"):
-        activity_type = str(row.get("activity_type", "")).strip()
-        product_mentions = str(row.get("product_mentions", "")).strip()
-        joined = hospital_lookup.get((str(row.get("account_name", "")).strip(), str(row.get("rep_id", "")).strip()), {})
-        prepared.append(
-            {
-                **row,
-                "visit_count": 1,
-                "has_detail_call": _is_detail_call(activity_type, product_mentions),
-                "next_action_text": product_mentions,
-                "hospital_id": str(joined.get("account_id") or row.get("account_name") or "").strip(),
-                "hospital_name": str(joined.get("account_name") or row.get("account_name") or "").strip(),
-            }
-        )
-    return prepared
-
-
-def _is_detail_call(activity_type: str, product_mentions: str) -> bool:
-    text = f"{activity_type} {product_mentions}".lower()
-    keywords = ("pt", "제품설명", "디테일", "detail", "demo", "시연")
-    return any(keyword in text for keyword in keywords)
-
-
-def _build_activity_context(
-    activity_frame: pd.DataFrame,
-    company_master_frame: pd.DataFrame,
-    hospital_master_frame: pd.DataFrame,
-) -> dict[str, Any]:
-    months = sorted({str(value).strip() for value in activity_frame.get("metric_month", pd.Series(dtype=str)).tolist() if str(value).strip()})
-    rep_ids = {str(value).strip() for value in activity_frame.get("rep_id", pd.Series(dtype=str)).tolist() if str(value).strip()}
-    return {
-        "row_count": int(len(activity_frame)),
-        "metric_months": months,
-        "metric_month_start": months[0] if months else "",
-        "metric_month_end": months[-1] if months else "",
-        "rep_count": len(rep_ids),
-        "company_master_count": int(len(company_master_frame)),
-        "hospital_master_count": int(len(hospital_master_frame)),
-    }
-
-
-def _build_mapping_quality(activity_frame: pd.DataFrame, hospital_master_frame: pd.DataFrame) -> dict[str, Any]:
-    total_rows = max(len(activity_frame), 1)
-    matched_accounts = 0
-    if not activity_frame.empty and not hospital_master_frame.empty:
-        known_accounts = {
-            (str(row.get("account_name", "")).strip(), str(row.get("rep_id", "")).strip())
-            for row in hospital_master_frame.to_dict(orient="records")
-        }
-        for row in activity_frame.to_dict(orient="records"):
-            key = (str(row.get("account_name", "")).strip(), str(row.get("rep_id", "")).strip())
-            if key in known_accounts:
-                matched_accounts += 1
-
-    def fill_rate(column: str) -> float:
-        if column not in activity_frame.columns or activity_frame.empty:
-            return 0.0
-        filled = sum(1 for value in activity_frame[column].tolist() if str(value).strip())
-        return round((filled / total_rows) * 100.0, 1)
-
-    return {
-        "activity_date_fill_rate": fill_rate("activity_date"),
-        "metric_month_fill_rate": fill_rate("metric_month"),
-        "rep_id_fill_rate": fill_rate("rep_id"),
-        "account_name_fill_rate": fill_rate("account_name"),
-        "activity_type_fill_rate": fill_rate("activity_type"),
-        "hospital_join_match_rate": round((matched_accounts / total_rows) * 100.0, 1),
-    }
-
-
-def _build_behavior_profiles(activity_frame: pd.DataFrame) -> list[dict[str, Any]]:
-    if activity_frame.empty:
-        return []
-
-    profiles: list[dict[str, Any]] = []
-    for metric_month, month_frame in activity_frame.groupby("metric_month", dropna=False):
-        counts = month_frame["activity_type"].fillna("").astype(str).str.strip().value_counts()
-        total = int(counts.sum())
-        top_behaviors = [
-            {
-                "activity_type": activity_type,
-                "count": int(count),
-                "share_pct": round((int(count) / total) * 100.0, 1) if total else 0.0,
-            }
-            for activity_type, count in counts.head(8).items()
-        ]
-        profiles.append(
-            {
-                "metric_month": str(metric_month or ""),
-                "activity_count": total,
-                "top_behaviors": top_behaviors,
-            }
-        )
-    return sorted(profiles, key=lambda item: item["metric_month"])
-
-
-def _build_monthly_kpi(month_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    for row in month_rows:
-        metric_set = row.get("metric_set", {})
-        rows.append(
-            {
-                "metric_month": row.get("metric_month", ""),
-                "rep_count": row.get("rep_count", 0),
-                "coach_score": metric_set.get("coach_score", 0.0),
-                "hir": metric_set.get("hir", 0.0),
-                "rtr": metric_set.get("rtr", 0.0),
-                "pv": metric_set.get("pv", 0.0),
-                "pi": metric_set.get("pi", 0.0),
-            }
-        )
-    return rows
-
-
-def _build_notes(activity_frame: pd.DataFrame, hospital_master_frame: pd.DataFrame) -> list[str]:
-    notes: list[str] = []
-    if "product_mentions" not in activity_frame.columns or not activity_frame["product_mentions"].fillna("").astype(str).str.strip().any():
-        notes.append("제품 언급 정보가 약해서 next action 해석은 단순 기준으로 계산했습니다.")
-    if hospital_master_frame.empty:
-        notes.append("병원 기준 매핑 파일이 없어 account_name을 임시 병원 식별값으로 사용했습니다.")
-    return notes
+def build_crm_builder_payload(
+    asset: CrmResultAsset,
+    summary: dict,
+    company_name: str,
+    activities: list[CrmStandardActivity] | None = None,
+    company_master: list[CompanyMasterStandard] | None = None,
+) -> dict:
+    return _build_crm_builder_payload(
+        asset=asset,
+        summary=summary,
+        company_name=company_name,
+        activities=activities,
+        company_master=company_master,
+    )

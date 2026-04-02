@@ -1097,7 +1097,7 @@ Phase 5-1 후속 운영 메모:
 - `필수 항목 / 있으면 좋은 항목` 구분은 현재 rules와 테스트 기준으로 고정했고, 화면 문구 세분화는 Phase 7 이후 이어서 다듬을 수 있다
 - `monthly_merge_pharma`는 월별 병합 기준 회사 이름으로 유지하고, 실데이터 절차 문서는 후속 운영 문서에서 더 자세히 확장할 수 있다
 
-### [ ] Phase 6. KPI 계산과 Result Asset Base 구현
+### [x] Phase 6. KPI 계산과 Result Asset Base 구현
 
 구현 시 먼저 볼 설계 문서:
 
@@ -1189,7 +1189,7 @@ Phase 5-1 후속 운영 메모:
 
 
 
-### [ ] Phase 7. validation 구현
+### [x] Phase 7. validation 구현
 
 구현 시 먼저 볼 설계 문서:
 
@@ -1241,7 +1241,7 @@ Phase 5-1 후속 운영 메모:
 - TypeScript validation은 새 판정 기준을 만드는 곳이 아니라,
   Python 결과를 저장/조회/설명하는 역할만 맡는다
 
-### [ ] Phase 8. payload 조립 구현
+### [x] Phase 8. payload 조립 구현
 
 구현 시 먼저 볼 설계 문서:
 
@@ -1287,7 +1287,7 @@ Phase 5-1 후속 운영 메모:
 - payload는 Python 계산/validation 결과를 그대로 소비해서 조립한다
 - Builder 입력 표준은 유지하되, 내용 생성 기준은 Python 결과물로 고정한다
 
-### [ ] Phase 9. Builder 구현
+### [x] Phase 9. Builder 구현
 
 구현 시 먼저 볼 설계 문서:
 

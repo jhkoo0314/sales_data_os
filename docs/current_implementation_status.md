@@ -27,19 +27,19 @@
 - `Phase 4. 입력 검증 구현`
 - `Phase 5. 정규화 구현`
 - `Phase 5-1. 지저분한 raw 대응 보강`
-
-현재 재시작 대상으로 보는 Phase:
-
 - `Phase 6. KPI 계산과 Result Asset Base 구현`
 - `Phase 7. validation 구현`
 - `Phase 8. payload 조립 구현`
 - `Phase 9. Builder 구현`
+
+현재 재시작 대상으로 보는 Phase:
+
 - `Phase 10. Worker Runtime 구현`
 - `Phase 11 ~ Phase 18`
 
 현재 다음 시작점:
 
-- `Phase 6. KPI 계산과 Result Asset Base 구현`
+- `Phase 10. Worker Runtime 구현`
 
 현재 저장소 기준 실제 상태:
 
@@ -428,7 +428,7 @@
 - 이유:
   - 공식 KPI 계산은 `modules/kpi/*` Python 엔진이어야 하는데
   - 현재 구현은 TypeScript 서버 코드가 계산을 다시 하고 있기 때문이다
-- 따라서 `Phase 6`은 `미완료 / 재시작 필요` 상태로 되돌린다
+- 따라서 당시 기준으로 `Phase 6`은 `미완료 / 재시작 필요` 상태로 되돌렸다
 
 `2026-04-02` Phase 6 CRM / Sandbox Python 재구현 진행 메모:
 
@@ -470,8 +470,8 @@
   - `python scripts/kpi/run_radar_kpi.py --company-key daon_pharma` 실행 확인
 - 현재 해석:
   - `CRM`, `Sandbox`, `Prescription`, `Territory`, `RADAR`는 Python 기준 `표준화/기존 결과 읽기 -> KPI/문맥/신호 계산 -> result asset 저장`까지 1차 연결됐다
-  - 다만 아직 `Phase 6 전체 완료`로 보지 않는다
-  - 남은 일은 CRM 세부 지표 정밀도 보강, Sandbox 병원 조인/summary 고도화, Prescription/ Territory 문맥 고도화, RADAR 신호 규칙 확장, 이후 `validation` 연결이다
+  - 현재 기준 `Phase 6 완료`로 본다
+  - 남는 일은 세부 지표 정밀도 보강과 payload/builder 연결 고도화다
 
 과거 구현 기록 보존 메모:
 
@@ -539,7 +539,51 @@
 - 이유:
   - validation은 KPI 이후 전달 판단 레이어인데,
     앞단 KPI/result asset가 TypeScript 재계산 기준이면 validation도 공식 결과가 아니다
-- 따라서 `Phase 7`은 `미완료 / 재시작 필요` 상태로 되돌린다
+- 따라서 당시 기준으로 `Phase 7`은 `미완료 / 재시작 필요` 상태로 되돌렸다
+
+`2026-04-02` Phase 7 Python validation 재구현 메모:
+
+- `modules/validation/service.py`를 추가했다
+  - `crm / prescription / sandbox / territory / radar` result asset을 읽는다
+  - 모듈별 `quality_status / quality_score / reasoning_note / next_modules / gate_details`를 만든다
+  - `data/validation/{company_key}/{module}/*_validation_summary.json`을 저장한다
+  - `data/validation/{company_key}/_meta/latest_validation_summary.json`을 함께 저장한다
+- 실행 스크립트를 추가했다
+  - `scripts/validation/run_validation.py`
+- 테스트를 추가했다
+  - `tests/test_phase6_kpi.py` 안 validation 통합 테스트 확장
+- 검증:
+  - `python -m pytest tests/test_phase6_kpi.py` 통과
+  - `python scripts/validation/run_validation.py --company-key daon_pharma` 실행 확인
+- 현재 해석:
+  - `Phase 7`은 Python result asset 기준 validation summary 생성과 전체 요약 생성까지 완료로 본다
+  - 다음 시작점은 `Phase 8 payload 조립 구현`이다
+
+`2026-04-02` Phase 8 payload 조립 구현 메모:
+
+- `modules/payloads/service.py`를 추가했다
+  - `result asset`와 `validation summary`만 읽는다
+  - Builder가 읽을 `builder payload`를 모듈별로 조립한다
+  - Builder가 읽을 `builder input standard`도 함께 저장한다
+  - 계산은 이 단계에서 다시 하지 않는다
+- 저장 파일:
+  - `data/validation/{company_key}/crm/crm_builder_payload.json`
+  - `data/validation/{company_key}/sandbox/sandbox_builder_payload.json`
+  - `data/validation/{company_key}/prescription/prescription_builder_payload.json`
+  - `data/validation/{company_key}/territory/territory_builder_payload.json`
+  - `data/validation/{company_key}/radar/radar_builder_payload.json`
+  - `data/validation/{company_key}/builder/{module}_builder_input_standard.json`
+  - `data/validation/{company_key}/builder/builder_payload_index.json`
+- 실행 스크립트를 추가했다
+  - `scripts/payloads/build_payloads.py`
+- 테스트를 추가했다
+  - `tests/test_phase6_kpi.py` 안 payload 통합 테스트 확장
+- 검증:
+  - `python -m pytest tests/test_phase6_kpi.py` 통과
+  - `python scripts/payloads/build_payloads.py --company-key daon_pharma` 실행 확인
+- 현재 해석:
+  - `Phase 8`은 Builder가 계산 없이 payload와 input standard만 읽을 수 있는 상태까지 완료로 본다
+  - 다음 시작점은 `Phase 9 Builder 구현`이다
 
 `2026-03-31` Phase 7 완료 상태:
 
@@ -681,7 +725,36 @@
 - 이유:
   - Builder 자체는 render-only여야 맞지만,
     현재 입력 payload와 preview 검증은 TS 재계산 결과 위에 서 있다
-- 따라서 `Phase 9`는 `미완료 / 재시작 필요` 상태로 되돌린다
+- 따라서 당시 기준으로 `Phase 9`는 `미완료 / 재시작 필요` 상태로 되돌렸다
+
+`2026-04-02` Phase 9 Builder 재구현 메모:
+
+- `modules/builder/service.py`를 추가했다
+  - `builder_input_standard`와 `builder payload`만 읽는다
+  - 템플릿 HTML에 payload를 주입해 preview HTML을 만든다
+  - preview용 `input_standard`, `payload_standard`, `result_asset`를 같이 저장한다
+  - Builder는 계산하지 않는다
+- 실행 스크립트를 추가했다
+  - `scripts/builder/render_previews.py`
+- 현재 생성되는 대표 파일:
+  - `data/validation/{company_key}/builder/crm_analysis_preview.html`
+  - `data/validation/{company_key}/builder/sandbox_report_preview.html`
+  - `data/validation/{company_key}/builder/territory_map_preview.html`
+  - `data/validation/{company_key}/builder/prescription_flow_preview.html`
+  - `data/validation/{company_key}/builder/radar_report_preview.html`
+  - `data/validation/{company_key}/builder/*_preview_input_standard.json`
+  - `data/validation/{company_key}/builder/*_preview_payload_standard.json`
+  - `data/validation/{company_key}/builder/*_preview_result_asset.json`
+  - `data/validation/{company_key}/builder/builder_validation_summary.json`
+  - `data/validation/{company_key}/builder/total_valid_preview.html`
+- 테스트를 추가했다
+  - `tests/test_phase6_kpi.py` 안 builder preview 통합 테스트 확장
+- 검증:
+  - `python -m pytest tests/test_phase6_kpi.py` 통과
+  - `python scripts/builder/render_previews.py --company-key daon_pharma` 실행 확인
+- 현재 해석:
+  - `Phase 9`는 payload만 읽는 Builder preview 생성 기준으로 완료로 본다
+  - 다음 시작점은 `Phase 10 Worker Runtime 구현`이다
 
 `2026-03-31` Phase 9 완료 상태:
 

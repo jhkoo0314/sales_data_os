@@ -1,0 +1,218 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+import sys
+
+import pandas as pd
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from modules.sandbox.schemas import (
+    SandboxInputStandard,
+    CrmDomainRecord,
+    SalesDomainRecord,
+    TargetDomainRecord,
+)
+from modules.sandbox.builder_payload import build_chunked_sandbox_payload
+from modules.sandbox.service import build_sandbox_result_asset
+from modules.validation.api.sandbox_router import evaluate_sandbox_asset
+from common.company_runtime import get_active_company_key, get_active_company_name, get_company_root
+
+COMPANY_KEY = get_active_company_key()
+COMPANY_NAME = get_active_company_name(COMPANY_KEY)
+CRM_STANDARD_ROOT = get_company_root(ROOT, "ops_standard", COMPANY_KEY) / "crm"
+SANDBOX_STANDARD_ROOT = get_company_root(ROOT, "ops_standard", COMPANY_KEY) / "sandbox"
+CRM_VALIDATION_ROOT = get_company_root(ROOT, "ops_validation", COMPANY_KEY) / "crm"
+OUTPUT_ROOT = get_company_root(ROOT, "ops_validation", COMPANY_KEY) / "sandbox"
+
+
+def load_crm_domain_records() -> list[CrmDomainRecord]:
+    crm_df = pd.read_excel(CRM_STANDARD_ROOT / "ops_crm_activity.xlsx")
+    company_df = pd.read_excel(CRM_STANDARD_ROOT / "ops_company_master.xlsx")
+    rep_meta_df = company_df[["rep_id", "rep_name", "branch_id", "branch_name"]].drop_duplicates(subset=["rep_id"])
+    rep_meta_map = {
+        str(row.rep_id): {
+            "rep_name": str(row.rep_name),
+            "branch_id": str(row.branch_id),
+            "branch_name": str(row.branch_name),
+        }
+        for row in rep_meta_df.itertuples(index=False)
+    }
+    grouped = (
+        crm_df.groupby(["hospital_id", "rep_id", "metric_month"], as_index=False)
+        .agg(
+            total_visits=("visit_count", "sum"),
+            detail_call_count=("has_detail_call", "sum"),
+            active_day_count=("activity_date", "nunique"),
+            avg_sentiment_score=("sentiment_score", "mean"),
+            avg_quality_factor=("quality_factor", "mean"),
+            avg_impact_factor=("impact_factor", "mean"),
+            avg_weighted_activity_score=("weighted_activity_score", "mean"),
+            next_action_count=("next_action_text", lambda s: int(sum(1 for v in s if pd.notna(v) and str(v).strip()))),
+            activity_types=("activity_type", lambda s: sorted(set(str(v) for v in s if pd.notna(v)))),
+        )
+    )
+
+    crm_asset_path = CRM_VALIDATION_ROOT / "crm_result_asset.json"
+    rep_month_kpi: dict[tuple[str, str], dict] = {}
+    if crm_asset_path.exists():
+        asset = json.loads(crm_asset_path.read_text(encoding="utf-8"))
+        for row in asset.get("rep_monthly_kpi_11", []):
+            metric_set = row.get("metric_set", {}) or {}
+            rep_month_kpi[(str(row.get("rep_id", "")), str(row.get("metric_month", "")))] = {
+                "hir": metric_set.get("hir"),
+                "rtr": metric_set.get("rtr"),
+                "bcr": metric_set.get("bcr"),
+                "phr": metric_set.get("phr"),
+                "nar": metric_set.get("nar"),
+                "ahs": metric_set.get("ahs"),
+                "pv": metric_set.get("pv"),
+                "fgr": metric_set.get("fgr"),
+                "pi": metric_set.get("pi"),
+                "trg": metric_set.get("trg"),
+                "swr": metric_set.get("swr"),
+                "coach_score": metric_set.get("coach_score"),
+                "behavior_mix_8": row.get("behavior_mix_8", {}) or {},
+            }
+
+    records = []
+    for row in grouped.itertuples(index=False):
+        meta = rep_meta_map.get(str(row.rep_id), {})
+        kpi = rep_month_kpi.get((str(row.rep_id), str(row.metric_month)), {})
+        records.append(CrmDomainRecord(
+            hospital_id=str(row.hospital_id),
+            rep_id=str(row.rep_id),
+            rep_name=meta.get("rep_name"),
+            branch_id=meta.get("branch_id"),
+            branch_name=meta.get("branch_name"),
+            metric_month=str(row.metric_month),
+            total_visits=int(row.total_visits),
+            detail_call_count=int(row.detail_call_count),
+            active_day_count=int(row.active_day_count),
+            avg_sentiment_score=None if pd.isna(row.avg_sentiment_score) else float(row.avg_sentiment_score),
+            avg_quality_factor=None if pd.isna(row.avg_quality_factor) else float(row.avg_quality_factor),
+            avg_impact_factor=None if pd.isna(row.avg_impact_factor) else float(row.avg_impact_factor),
+            avg_weighted_activity_score=None if pd.isna(row.avg_weighted_activity_score) else float(row.avg_weighted_activity_score),
+            next_action_count=int(row.next_action_count),
+            activity_types=list(row.activity_types),
+            hir=None if kpi.get("hir") is None else float(kpi.get("hir")),
+            rtr=None if kpi.get("rtr") is None else float(kpi.get("rtr")),
+            bcr=None if kpi.get("bcr") is None else float(kpi.get("bcr")),
+            phr=None if kpi.get("phr") is None else float(kpi.get("phr")),
+            nar=None if kpi.get("nar") is None else float(kpi.get("nar")),
+            ahs=None if kpi.get("ahs") is None else float(kpi.get("ahs")),
+            pv=None if kpi.get("pv") is None else float(kpi.get("pv")),
+            fgr=None if kpi.get("fgr") is None else float(kpi.get("fgr")),
+            pi=None if kpi.get("pi") is None else float(kpi.get("pi")),
+            trg=None if kpi.get("trg") is None else float(kpi.get("trg")),
+            swr=None if kpi.get("swr") is None else float(kpi.get("swr")),
+            coach_score=None if kpi.get("coach_score") is None else float(kpi.get("coach_score")),
+            behavior_mix_8={str(k): float(v) for k, v in (kpi.get("behavior_mix_8") or {}).items()},
+        ))
+    return records
+
+
+def load_sales_records() -> list[SalesDomainRecord]:
+    sales_df = pd.read_excel(SANDBOX_STANDARD_ROOT / "ops_sales_records.xlsx")
+    records = []
+    for row in sales_df.to_dict(orient="records"):
+        row["hospital_id"] = str(row["hospital_id"])
+        row["rep_id"] = str(row["rep_id"])
+        row["metric_month"] = str(row["metric_month"])
+        row["product_id"] = str(row["product_id"])
+        records.append(SalesDomainRecord(**row))
+    return records
+
+
+def load_target_records() -> list[TargetDomainRecord]:
+    target_df = pd.read_excel(SANDBOX_STANDARD_ROOT / "ops_target_records.xlsx")
+    records = []
+    for row in target_df.to_dict(orient="records"):
+        row["rep_id"] = str(row["rep_id"])
+        row["metric_month"] = str(row["metric_month"])
+        row["product_id"] = str(row["product_id"])
+        if row.get("hospital_id") is not None and not pd.isna(row.get("hospital_id")):
+            row["hospital_id"] = str(row["hospital_id"])
+        records.append(TargetDomainRecord(**row))
+    return records
+
+
+def main() -> None:
+    OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
+    chunk_root = OUTPUT_ROOT / "sandbox_template_payload_assets"
+    chunk_root.mkdir(parents=True, exist_ok=True)
+
+    for existing in chunk_root.glob("*.js"):
+        existing.unlink()
+
+    crm_records = load_crm_domain_records()
+    sales_records = load_sales_records()
+    target_records = load_target_records()
+    metric_months = sorted({r.metric_month for r in sales_records} | {r.metric_month for r in crm_records})
+
+    input_std = SandboxInputStandard(
+        scenario=f"{COMPANY_KEY}_crm_sales_target",
+        metric_months=metric_months,
+        crm_records=crm_records,
+        sales_records=sales_records,
+        target_records=target_records,
+        created_by=f"{COMPANY_KEY}_source_adapter",
+    )
+    result_asset = build_sandbox_result_asset(input_std)
+    if result_asset.dashboard_payload is not None:
+        manifest, asset_chunks = build_chunked_sandbox_payload(
+            result_asset.dashboard_payload.template_payload or {}
+        )
+        for chunk_name, chunk_payload in asset_chunks.items():
+            branch_key_json = json.dumps(str(chunk_payload.get("branch_name") or ""), ensure_ascii=False)
+            chunk_script = (
+                "window.__SANDBOX_BRANCH_DATA__ = window.__SANDBOX_BRANCH_DATA__ || {};\n"
+                f"window.__SANDBOX_BRANCH_DATA__[{branch_key_json}] = "
+                f"{json.dumps(chunk_payload.get('branch_payload', {}), ensure_ascii=False)};\n"
+            )
+            (chunk_root / chunk_name).write_text(chunk_script, encoding="utf-8")
+        manifest["asset_base"] = chunk_root.name
+        block_payload = manifest.get("block_payload")
+        if isinstance(block_payload, dict):
+            runtime_block = block_payload.get("template_runtime_manifest")
+            if isinstance(runtime_block, dict):
+                runtime_block["data_mode"] = manifest.get("data_mode", "")
+                runtime_block["asset_base"] = manifest.get("asset_base", "")
+                runtime_block["branch_asset_manifest"] = manifest.get("branch_asset_manifest", {})
+                runtime_block["branch_index"] = manifest.get("branch_index", [])
+                runtime_block["branch_asset_counts"] = manifest.get("branch_asset_counts", {})
+        result_asset.dashboard_payload.template_payload = manifest
+    evaluation = evaluate_sandbox_asset(result_asset)
+
+    (OUTPUT_ROOT / "sandbox_result_asset.json").write_text(
+        json.dumps(result_asset.model_dump(mode="json"), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    (OUTPUT_ROOT / "sandbox_ops_evaluation.json").write_text(
+        json.dumps(evaluation.model_dump(mode="json"), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    summary = {
+        "crm_record_count": len(crm_records),
+        "sales_record_count": len(sales_records),
+        "target_record_count": len(target_records),
+        "metric_month_count": len(metric_months),
+        "quality_status": evaluation.quality_status,
+        "quality_score": evaluation.quality_score,
+        "next_modules": evaluation.next_modules,
+    }
+    (OUTPUT_ROOT / "sandbox_validation_summary.json").write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    print(f"Validated {COMPANY_NAME} sandbox data with OPS:")
+    print(json.dumps(summary, ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    main()

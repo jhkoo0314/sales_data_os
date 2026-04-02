@@ -1,115 +1,155 @@
-from __future__ import annotations
+"""
+Prescription Module Service - PrescriptionStandardFlow → PrescriptionResultAsset
 
-import json
-from typing import Any
+흐름 레코드를 집계하여 Validation Layer(OPS)에 전달할 Result Asset을 생성한다.
+"""
 
-import pandas as pd
+from collections import Counter
+from typing import Optional
 
-from common.pipeline_paths import ensure_parent, result_asset_root, standardized_root
-from modules.kpi.prescription_engine import build_prescription_context
-from result_assets.prescription_result_asset import PrescriptionResultAsset
+from modules.prescription.schemas import PrescriptionStandardFlow, PrescriptionGapRecord
+from modules.prescription.builder_payload import (
+    build_prescription_builder_payload as _build_prescription_builder_payload,
+)
+from result_assets.prescription_result_asset import (
+    PrescriptionResultAsset,
+    LineageSummary,
+    ReconciliationSummary,
+    ValidationGapSummary,
+    PrescriptionMappingQualitySummary,
+)
+from common.exceptions import MissingResultAssetError
 
 
-def build_prescription_result_asset(company_key: str) -> dict[str, Any]:
-    root = standardized_root(company_key, "prescription")
-    frame = pd.read_excel(root / "ops_prescription_standard.xlsx", dtype=str).fillna("")
-    frame = frame.assign(
-        quantity_num=frame.get("quantity", "").map(_to_float),
-        amount_num=frame.get("amount", "").map(_to_float),
+def build_prescription_result_asset(
+    flows: list[PrescriptionStandardFlow],
+    gaps: list[PrescriptionGapRecord],
+    adapter_failed_count: int = 0,
+    total_raw_count: int = 0,
+    notes: Optional[str] = None,
+) -> PrescriptionResultAsset:
+    """
+    PrescriptionStandardFlow + GapRecord 목록으로 PrescriptionResultAsset을 생성합니다.
+
+    Args:
+        flows: flow_builder 출력 (UNMAPPED 포함)
+        gaps: flow_builder 정의한 gap 기록 목록
+        adapter_failed_count: Adapter 변환 실패 건수
+        total_raw_count: 원본 raw 전체 건수
+        notes: 비고
+
+    Returns:
+        PrescriptionResultAsset
+    """
+    if not flows:
+        raise MissingResultAssetError(
+            "PrescriptionResultAsset을 생성할 흐름 데이터가 없습니다.",
+            detail="Adapter 또는 FlowBuilder 실행 결과가 비어 있습니다."
+        )
+
+    # ── 1. Lineage Summary ────────────────────────────────────────────────────
+    complete = [f for f in flows if f.is_complete]
+    incomplete = [f for f in flows if not f.is_complete]
+    total = len(flows)
+
+    unique_wholesalers = len({f.wholesaler_id for f in flows})
+    unique_pharmacies = len({f.pharmacy_id for f in flows})
+    unique_hospitals = len({f.hospital_id for f in complete if f.hospital_id})
+    unique_products = len({f.product_id for f in flows})
+    months = sorted({f.metric_month for f in flows})
+
+    lineage = LineageSummary(
+        total_flow_records=total,
+        complete_flow_count=len(complete),
+        incomplete_flow_count=len(incomplete),
+        flow_completion_rate=round(len(complete) / total, 3) if total > 0 else 0.0,
+        unique_wholesalers=unique_wholesalers,
+        unique_pharmacies=unique_pharmacies,
+        unique_hospitals_connected=unique_hospitals,
+        unique_products=unique_products,
+        metric_months=months,
     )
 
-    engine_result = build_prescription_context(frame.to_dict(orient="records"))
-    gaps = engine_result.get("gaps", [])
-    result_asset = PrescriptionResultAsset(
-        company_key=company_key,
-        metric_version=str(engine_result.get("metric_version", "prescription_kpi_engine_v1")),
-        lineage_summary=_build_lineage_summary(frame),
-        reconciliation_summary=_build_reconciliation_summary(frame),
-        validation_gap_summary=_build_validation_gap_summary(frame, gaps),
-        mapping_quality=_build_mapping_quality(frame),
-        flow_series=engine_result.get("flow_series", []),
-        pipeline_steps=engine_result.get("pipeline_steps", []),
-        claims=engine_result.get("claims", []),
-        hospital_traces=engine_result.get("hospital_traces", []),
-        rep_kpis=engine_result.get("rep_kpis", []),
-        gaps=gaps,
-        notes=_build_notes(frame),
+    # ── 2. Reconciliation Summary ────────────────────────────────────────────
+    ws_qty = sum(f.total_quantity for f in flows if f.source_record_type == "wholesaler_shipment")
+    ph_qty = sum(f.total_quantity for f in flows if f.source_record_type == "pharmacy_purchase")
+    has_both = ws_qty > 0 and ph_qty > 0
+
+    match_rate = None
+    if has_both and ws_qty > 0:
+        match_rate = round(min(ws_qty, ph_qty) / max(ws_qty, ph_qty), 3)
+
+    recon_note = None
+    if not has_both:
+        recon_note = (
+            "도매출고 데이터만 있습니다. 약국구입 데이터가 추가되면 대조 가능합니다."
+            if ws_qty > 0
+            else "약국구입 데이터만 있습니다. 도매출고 데이터가 추가되면 대조 가능합니다."
+        )
+
+    reconciliation = ReconciliationSummary(
+        wholesaler_shipment_qty=ws_qty,
+        pharmacy_purchase_qty=ph_qty,
+        qty_match_rate=match_rate,
+        has_both_sources=has_both,
+        reconciliation_note=recon_note,
     )
 
-    payload = result_asset.to_dict()
-    target_path = result_asset_root(company_key, "prescription") / "prescription_result_asset.json"
-    ensure_parent(target_path).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    return payload
+    # ── 3. Validation Gap Summary ─────────────────────────────────────────────
+    gap_by_reason = dict(Counter(g.gap_reason for g in gaps))
+    top_pharmacies = [
+        name for name, _ in Counter(g.pharmacy_name for g in gaps).most_common(20)
+    ]
+    top_products = [
+        name for name, _ in Counter(g.product_id for g in gaps).most_common(10)
+    ]
+
+    gap_summary = ValidationGapSummary(
+        total_gap_records=len(gaps),
+        gap_by_reason=gap_by_reason,
+        top_unmapped_pharmacies=top_pharmacies,
+        top_unmapped_products=top_products,
+    )
+
+    # ── 4. Mapping Quality ───────────────────────────────────────────────────
+    raw_total = total_raw_count if total_raw_count > 0 else (total + adapter_failed_count)
+    hospital_covered = len({f.hospital_id for f in flows if f.hospital_id and f.is_complete})
+    hospital_ids_in_flows = len({f.hospital_id for f in flows if f.hospital_id})
+
+    quality = PrescriptionMappingQualitySummary(
+        total_records=raw_total,
+        adapter_failed_records=adapter_failed_count,
+        flow_complete_records=len(complete),
+        flow_incomplete_records=len(incomplete),
+        flow_completion_rate=lineage.flow_completion_rate,
+        hospital_coverage_rate=round(hospital_covered / max(hospital_ids_in_flows, 1), 3),
+    )
+
+    return PrescriptionResultAsset(
+        lineage_summary=lineage,
+        reconciliation_summary=reconciliation,
+        validation_gap_summary=gap_summary,
+        mapping_quality=quality,
+        notes=notes,
+    )
 
 
-def _to_float(value: Any) -> float:
-    text = str(value or "").strip().replace(",", "")
-    if not text:
-        return 0.0
-    try:
-        return float(text)
-    except ValueError:
-        return 0.0
-
-
-def _build_lineage_summary(frame: pd.DataFrame) -> dict[str, Any]:
-    months = sorted({str(value).strip() for value in frame.get("metric_month", pd.Series(dtype=str)).tolist() if str(value).strip()})
-    return {
-        "row_count": int(len(frame)),
-        "metric_months": months,
-        "metric_month_start": months[0] if months else "",
-        "metric_month_end": months[-1] if months else "",
-        "pharmacy_count": _count_distinct(frame, "pharmacy_name"),
-        "brand_count": _count_distinct(frame, "brand_name"),
-    }
-
-
-def _build_reconciliation_summary(frame: pd.DataFrame) -> dict[str, Any]:
-    return {
-        "total_quantity": round(float(frame.get("quantity_num", pd.Series(dtype=float)).sum()), 1),
-        "total_amount": round(float(frame.get("amount_num", pd.Series(dtype=float)).sum()), 1),
-        "nonzero_amount_rows": int(sum(1 for value in frame.get("amount_num", pd.Series(dtype=float)).tolist() if float(value) > 0)),
-    }
-
-
-def _build_validation_gap_summary(frame: pd.DataFrame, gaps: list[dict[str, Any]]) -> dict[str, Any]:
-    total_rows = max(len(frame), 1)
-    amount_missing = sum(1 for value in frame.get("amount", pd.Series(dtype=str)).tolist() if not str(value).strip())
-    quantity_missing = sum(1 for value in frame.get("quantity", pd.Series(dtype=str)).tolist() if not str(value).strip())
-    return {
-        "gap_count": len(gaps),
-        "amount_missing_rate": round((amount_missing / total_rows) * 100.0, 1),
-        "quantity_missing_rate": round((quantity_missing / total_rows) * 100.0, 1),
-    }
-
-
-def _build_mapping_quality(frame: pd.DataFrame) -> dict[str, Any]:
-    total_rows = max(len(frame), 1)
-    return {
-        "ship_date_fill_rate": _fill_rate(frame, "ship_date", total_rows),
-        "metric_month_fill_rate": _fill_rate(frame, "metric_month", total_rows),
-        "pharmacy_name_fill_rate": _fill_rate(frame, "pharmacy_name", total_rows),
-        "brand_name_fill_rate": _fill_rate(frame, "brand_name", total_rows),
-        "quantity_fill_rate": _fill_rate(frame, "quantity", total_rows),
-        "amount_fill_rate": _fill_rate(frame, "amount", total_rows),
-    }
-
-
-def _build_notes(frame: pd.DataFrame) -> list[str]:
-    notes: list[str] = []
-    if "amount" not in frame.columns or not frame["amount"].astype(str).str.strip().any():
-        notes.append("출고금액 정보가 약해 수량 중심 해석이 더 중요합니다.")
-    return notes
-
-
-def _fill_rate(frame: pd.DataFrame, column: str, total_rows: int) -> float:
-    if frame.empty or column not in frame.columns:
-        return 0.0
-    filled = sum(1 for value in frame[column].tolist() if str(value).strip())
-    return round((filled / total_rows) * 100.0, 1)
-
-
-def _count_distinct(frame: pd.DataFrame, column: str) -> int:
-    if frame.empty or column not in frame.columns:
-        return 0
-    return len({str(value).strip() for value in frame[column].tolist() if str(value).strip()})
+def build_prescription_builder_payload(
+    *,
+    company_name: str,
+    summary: dict,
+    claim_df,
+    flow_df,
+    gap_df,
+    rep_kpi_df,
+    download_files: Optional[dict[str, str]] = None,
+) -> dict:
+    return _build_prescription_builder_payload(
+        company_name=company_name,
+        summary=summary,
+        claim_df=claim_df,
+        flow_df=flow_df,
+        gap_df=gap_df,
+        rep_kpi_df=rep_kpi_df,
+        download_files=download_files,
+    )

@@ -1,205 +1,369 @@
-from __future__ import annotations
+"""
+Sandbox Service - SandboxInputStandard → SandboxResultAsset 생성
 
-import json
-from typing import Any
+핵심 로직:
+  1. 도메인별 레코드를 hospital_id 기준으로 집계
+  2. CRM × Sales × Target 조인 품질 계산
+  3. 달성률(attainment_rate) 계산
+  4. Territory/Builder handoff 후보 판단
+  5. SandboxResultAsset 반환
+"""
 
-import pandas as pd
+from collections import defaultdict
+from typing import Optional
 
-from common.pipeline_paths import ensure_parent, result_asset_root, standardized_root
-from modules.kpi.sandbox_engine import compute_sandbox_official_kpi_6
-from result_assets.sandbox_result_asset import SandboxResultAsset
-
-
-def build_sandbox_result_asset(company_key: str) -> dict[str, Any]:
-    sandbox_root = standardized_root(company_key, "sandbox")
-    sales_frame = pd.read_excel(sandbox_root / "ops_sales_records.xlsx", dtype=str).fillna("")
-    target_frame = pd.read_excel(sandbox_root / "ops_target_records.xlsx", dtype=str).fillna("")
-
-    sales_frame = sales_frame.assign(sales_amount_num=sales_frame.get("sales_amount", "").map(_to_float))
-    target_frame = target_frame.assign(target_amount_num=target_frame.get("target_amount", "").map(_to_float))
-
-    sales_by_month = _aggregate_by_month(sales_frame, "sales_amount_num")
-    target_by_month = _aggregate_by_month(target_frame, "target_amount_num")
-    official_kpi_6 = compute_sandbox_official_kpi_6(sales_by_month, target_by_month)
-
-    result_asset = SandboxResultAsset(
-        company_key=company_key,
-        metric_months=sorted(set(sales_by_month.keys()) | set(target_by_month.keys())),
-        official_kpi_6=official_kpi_6,
-        analysis_summary=_build_analysis_summary(sales_frame, target_frame, official_kpi_6),
-        domain_quality=_build_domain_quality(sales_frame, target_frame),
-        join_quality=_build_join_quality(sales_frame, target_frame),
-        hospital_records_sample=_build_hospital_record_sample(sales_frame, target_frame),
-        notes=_build_notes(sales_frame, target_frame),
-    )
-
-    payload = result_asset.to_dict()
-    target_path = result_asset_root(company_key, "sandbox") / "sandbox_result_asset.json"
-    ensure_parent(target_path).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    return payload
+from modules.kpi.sandbox_engine import (
+    OFFICIAL_SANDBOX_KPI6_KEYS,
+    compute_sandbox_official_kpi_6,
+    validate_official_kpi_6_payload,
+)
+from modules.sandbox.builders import (
+    build_dashboard_block_payload as _build_dashboard_block_payload_from_builders,
+    build_report_template_payload as _build_report_template_payload_from_builders,
+)
+from modules.sandbox.schemas import (
+    SandboxInputStandard,
+    HospitalAnalysisRecord,
+    AnalysisSummary,
+    DomainQualitySummary,
+    JoinQualitySummary,
+    PlannedHandoffCandidate,
+)
+from modules.sandbox.templates import (
+    PerformanceDashboardContract,
+    TableSlot,
+)
+from result_assets.sandbox_result_asset import SandboxResultAsset, DashboardPayload
+from common.exceptions import MissingResultAssetError
 
 
-def _to_float(value: Any) -> float:
-    text = str(value or "").strip().replace(",", "")
-    if not text:
-        return 0.0
-    try:
-        return float(text)
-    except ValueError:
-        return 0.0
+def build_sandbox_result_asset(
+    input_std: SandboxInputStandard,
+) -> SandboxResultAsset:
+    """
+    SandboxInputStandard를 받아 SandboxResultAsset을 생성한다.
 
+    Args:
+        input_std: OPS가 허용하고 도메인 Adapter가 변환한 표준 입력
 
-def _aggregate_by_month(frame: pd.DataFrame, amount_column: str) -> dict[str, float]:
-    if frame.empty:
-        return {}
-    grouped = (
-        frame.assign(metric_month=frame.get("metric_month", "").astype(str).str.strip())
-        .groupby("metric_month", dropna=False)[amount_column]
-        .sum()
-    )
-    return {str(month).strip(): float(amount) for month, amount in grouped.items() if str(month).strip()}
+    Returns:
+        SandboxResultAsset
 
-
-def _build_analysis_summary(
-    sales_frame: pd.DataFrame,
-    target_frame: pd.DataFrame,
-    official_kpi_6: dict[str, Any],
-) -> dict[str, Any]:
-    return {
-        "sales_row_count": int(len(sales_frame)),
-        "target_row_count": int(len(target_frame)),
-        "account_count": int(_count_distinct(sales_frame, "account_id", "account_name")),
-        "brand_count": int(_count_distinct(sales_frame, "brand_name")),
-        "reference_month": official_kpi_6.get("reference_month", ""),
-        "latest_month_attainment_rate": official_kpi_6.get("monthly_attainment_rate", 0.0),
-    }
-
-
-def _build_domain_quality(sales_frame: pd.DataFrame, target_frame: pd.DataFrame) -> dict[str, Any]:
-    sales_total = max(len(sales_frame), 1)
-    target_total = max(len(target_frame), 1)
-    return {
-        "sales_metric_month_fill_rate": _fill_rate(sales_frame, "metric_month", sales_total),
-        "sales_amount_fill_rate": _fill_rate(sales_frame, "sales_amount", sales_total),
-        "target_metric_month_fill_rate": _fill_rate(target_frame, "metric_month", target_total),
-        "target_amount_fill_rate": _fill_rate(target_frame, "target_amount", target_total),
-        "sales_account_fill_rate": _either_fill_rate(sales_frame, ["account_id", "account_name"], sales_total),
-        "target_account_fill_rate": _either_fill_rate(target_frame, ["account_id", "account_name"], target_total),
-    }
-
-
-def _build_join_quality(sales_frame: pd.DataFrame, target_frame: pd.DataFrame) -> dict[str, Any]:
-    sales_months = {str(value).strip() for value in sales_frame.get("metric_month", pd.Series(dtype=str)).tolist() if str(value).strip()}
-    target_months = {str(value).strip() for value in target_frame.get("metric_month", pd.Series(dtype=str)).tolist() if str(value).strip()}
-    shared_months = sorted(sales_months & target_months)
-
-    sales_pairs = _month_account_pairs(sales_frame)
-    target_pairs = _month_account_pairs(target_frame)
-    shared_pairs = sales_pairs & target_pairs
-
-    denominator = max(len(sales_pairs), 1)
-    return {
-        "shared_metric_months": shared_months,
-        "shared_metric_month_count": len(shared_months),
-        "month_overlap_rate": round((len(shared_months) / max(len(sales_months | target_months), 1)) * 100.0, 1),
-        "account_month_match_rate": round((len(shared_pairs) / denominator) * 100.0, 1),
-    }
-
-
-def _month_account_pairs(frame: pd.DataFrame) -> set[tuple[str, str]]:
-    pairs: set[tuple[str, str]] = set()
-    if frame.empty:
-        return pairs
-    for row in frame.to_dict(orient="records"):
-        month = str(row.get("metric_month", "")).strip()
-        account = str(row.get("account_id") or row.get("account_name") or "").strip()
-        if month and account:
-            pairs.add((month, account))
-    return pairs
-
-
-def _build_hospital_record_sample(sales_frame: pd.DataFrame, target_frame: pd.DataFrame) -> list[dict[str, Any]]:
-    if sales_frame.empty and target_frame.empty:
-        return []
-
-    sales_grouped = (
-        sales_frame.assign(account_key=sales_frame.get("account_id", "").where(sales_frame.get("account_id", "").astype(str).str.strip() != "", sales_frame.get("account_name", "")))
-        .groupby(["metric_month", "account_key", "account_name", "brand_name"], dropna=False)["sales_amount_num"]
-        .sum()
-        .reset_index()
-    )
-    target_grouped = (
-        target_frame.assign(account_key=target_frame.get("account_id", "").where(target_frame.get("account_id", "").astype(str).str.strip() != "", target_frame.get("account_name", "")))
-        .groupby(["metric_month", "account_key", "account_name", "brand_name"], dropna=False)["target_amount_num"]
-        .sum()
-        .reset_index()
-    )
-
-    merged = sales_grouped.merge(
-        target_grouped,
-        on=["metric_month", "account_key", "account_name", "brand_name"],
-        how="outer",
-    ).fillna(0.0)
-    merged["attainment_rate"] = merged.apply(
-        lambda row: round((float(row["sales_amount_num"]) / float(row["target_amount_num"]) * 100.0), 1)
-        if float(row["target_amount_num"]) > 0
-        else 0.0,
-        axis=1,
-    )
-    merged = merged.sort_values(["metric_month", "sales_amount_num"], ascending=[False, False])
-
-    rows: list[dict[str, Any]] = []
-    for row in merged.head(20).to_dict(orient="records"):
-        rows.append(
-            {
-                "metric_month": str(row.get("metric_month", "")).strip(),
-                "account_id": str(row.get("account_key", "")).strip(),
-                "account_name": str(row.get("account_name", "")).strip(),
-                "brand_name": str(row.get("brand_name", "")).strip(),
-                "sales_amount": round(float(row.get("sales_amount_num", 0.0) or 0.0), 0),
-                "target_amount": round(float(row.get("target_amount_num", 0.0) or 0.0), 0),
-                "attainment_rate": float(row.get("attainment_rate", 0.0) or 0.0),
-            }
+    Raises:
+        MissingResultAssetError: 입력 데이터가 전혀 없는 경우
+    """
+    if not input_std.has_sales and not input_std.has_crm:
+        raise MissingResultAssetError(
+            "SandboxInputStandard에 CRM 또는 Sales 데이터가 없습니다."
         )
-    return rows
+
+    # ── 1. hospital_id 기준 집계 버킷 ──────────────────
+    # key: (hospital_id, metric_month)
+    bucket: dict[tuple[str, str], HospitalAnalysisRecord] = {}
+
+    def get_or_create(hosp_id: str, month: str) -> HospitalAnalysisRecord:
+        key = (hosp_id, month)
+        if key not in bucket:
+            bucket[key] = HospitalAnalysisRecord(
+                hospital_id=hosp_id,
+                metric_month=month,
+            )
+        return bucket[key]
+
+    # ── 2. CRM 집계 ────────────────────────────────────
+    for r in input_std.crm_records:
+        rec = get_or_create(r.hospital_id, r.metric_month)
+        rec.total_visits += r.total_visits
+        rec.detail_call_count += r.detail_call_count
+        rec.has_crm = True
+
+    # ── 3. Sales 집계 ──────────────────────────────────
+    for r in input_std.sales_records:
+        rec = get_or_create(r.hospital_id, r.metric_month)
+        rec.total_sales += r.sales_amount
+        rec.total_quantity += (r.sales_quantity or 0.0)
+        rec.has_sales = True
+
+    # ── 4. Target 집계 ─────────────────────────────────
+    for r in input_std.target_records:
+        hosp_id = r.hospital_id
+        if not hosp_id:
+            # 병원 단위 목표 아닌 경우 → rep 기준으로 배분 생략, metric_month만 집계
+            # 단순히 월 수준에서 합산 (병원 단위 목표가 없으면 hospital 레코드에 붙이지 않음)
+            continue
+        rec = get_or_create(hosp_id, r.metric_month)
+        rec.total_target += r.target_amount
+        rec.has_target = True
+
+    # ── 5. Prescription 집계 ──────────────────────────
+    for r in input_std.prescription_records:
+        rec = get_or_create(r.hospital_id, r.metric_month)
+        rec.rx_amount += r.amount
+        if r.is_complete:
+            rec.rx_complete_flows += 1
+        rec.has_rx = True
+
+    # ── 6. 달성률 계산 ────────────────────────────────
+    for rec in bucket.values():
+        if rec.has_target and rec.total_target > 0:
+            rec.attainment_rate = round(rec.total_sales / rec.total_target, 4)
+
+    records = list(bucket.values())
+
+    # ── 7. AnalysisSummary ────────────────────────────
+    total_sales = sum(r.total_sales for r in records)
+    total_target = sum(r.total_target for r in records)
+    avg_attainment = None
+    rated = [r.attainment_rate for r in records if r.attainment_rate is not None]
+    if rated:
+        avg_attainment = round(sum(rated) / len(rated), 4)
+
+    unique_hospitals = {r.hospital_id for r in records}
+    fully_joined = sum(1 for r in records if r.is_fully_joined)
+    rx_linked = sum(1 for r in records if r.has_rx)
+    months = sorted({r.metric_month for r in records})
+
+    sales_by_month: dict[str, float] = defaultdict(float)
+    for row in input_std.sales_records:
+        sales_by_month[str(row.metric_month)] += float(row.sales_amount or 0.0)
+
+    target_by_month: dict[str, float] = defaultdict(float)
+    for row in input_std.target_records:
+        target_by_month[str(row.metric_month)] += float(row.target_amount or 0.0)
+
+    official_kpi_6 = compute_sandbox_official_kpi_6(
+        sales_by_month=sales_by_month,
+        target_by_month=target_by_month,
+    )
+    official_kpi_6 = validate_official_kpi_6_payload(official_kpi_6)
+
+    analysis_summary = AnalysisSummary(
+        total_hospitals=len(unique_hospitals),
+        total_months=len(months),
+        total_sales_amount=round(total_sales, 0),
+        total_target_amount=round(total_target, 0),
+        avg_attainment_rate=avg_attainment,
+        total_visits=sum(r.total_visits for r in records),
+        fully_joined_hospitals=fully_joined,
+        rx_linked_hospitals=rx_linked,
+        metric_months=months,
+        custom_metrics={
+            **{
+                key: float(official_kpi_6[key])  # type: ignore[arg-type]
+                for key in OFFICIAL_SANDBOX_KPI6_KEYS
+            },
+        },
+    )
+
+    # ── 8. DomainQualitySummary ───────────────────────
+    crm_months = sorted({r.metric_month for r in input_std.crm_records})
+    sales_months = sorted({r.metric_month for r in input_std.sales_records})
+    domain_quality = DomainQualitySummary(
+        crm_record_count=len(input_std.crm_records),
+        sales_record_count=len(input_std.sales_records),
+        target_record_count=len(input_std.target_records),
+        rx_record_count=len(input_std.prescription_records),
+        crm_unique_hospitals=len({r.hospital_id for r in input_std.crm_records}),
+        sales_unique_hospitals=len({r.hospital_id for r in input_std.sales_records}),
+        target_unique_reps=len({r.rep_id for r in input_std.target_records}),
+        rx_unique_hospitals=len({r.hospital_id for r in input_std.prescription_records}),
+        crm_months=crm_months,
+        sales_months=sales_months,
+    )
+
+    # ── 9. JoinQualitySummary ─────────────────────────
+    crm_hosps = {r.hospital_id for r in input_std.crm_records}
+    sales_hosps = {r.hospital_id for r in input_std.sales_records}
+    crm_and_sales = crm_hosps & sales_hosps
+    all_three = {r.hospital_id for r in records if r.is_fully_joined}
+    rx_hosps = {r.hospital_id for r in input_std.prescription_records}
+
+    crm_sales_rate = round(len(crm_and_sales) / len(crm_hosps), 4) if crm_hosps else 0.0
+    full_join_rate = round(len(all_three) / len(crm_hosps), 4) if crm_hosps else 0.0
+
+    join_quality = JoinQualitySummary(
+        hospitals_with_crm_and_sales=len(crm_and_sales),
+        hospitals_with_all_three=len(all_three),
+        hospitals_with_rx_added=len(rx_hosps & crm_hosps),
+        crm_sales_join_rate=crm_sales_rate,
+        full_join_rate=full_join_rate,
+        orphan_sales_hospitals=len(sales_hosps - crm_hosps),
+        orphan_crm_hospitals=len(crm_hosps - sales_hosps),
+    )
+
+    # 보조지표는 서비스 계층에서 계산하되, 공식 KPI 키와 섞이지 않게 prefix를 고정한다.
+    proxy_metrics = {
+        "sandbox_proxy_integrity_score": float(
+            round(
+                min(
+                    100.0,
+                    (crm_sales_rate * 50.0)
+                    + (full_join_rate * 40.0)
+                    + (10.0 if domain_quality.target_record_count > 0 else 0.0),
+                ),
+                1,
+            )
+        ),
+        "sandbox_proxy_orphan_sales_hospitals": float(len(sales_hosps - crm_hosps)),
+        "sandbox_proxy_orphan_crm_hospitals": float(len(crm_hosps - sales_hosps)),
+    }
+    analysis_summary.custom_metrics.update(proxy_metrics)
+
+    # ── 10. Handoff 후보 판단 ─────────────────────────
+    handoff_candidates = _evaluate_handoff_candidates(
+        join_quality=join_quality,
+        analysis_summary=analysis_summary,
+        has_rx=input_std.has_prescription,
+    )
+
+    # ── 11. 리포트 템플릿 계약 충족 (Template Injection) ──
+    # [Template-Driven Analysis]
+    # 템플릿 규격에 명시된 metric_key를 읽어 자동으로 데이터를 주입한다.
+    template = PerformanceDashboardContract.get_standard_template()
+    template.period_label = f"{analysis_summary.metric_months[0]}~{analysis_summary.metric_months[-1]}" if analysis_summary.metric_months else "N/A"
+    
+    report_contract = _inject_data_to_template(template, analysis_summary, records)
+    template_payload = _build_report_template_payload(
+        input_std=input_std,
+        analysis_summary=analysis_summary,
+        domain_quality=domain_quality,
+        join_quality=join_quality,
+        official_kpi_6=official_kpi_6,
+    )
+    block_payload = _build_dashboard_block_payload(
+        template_payload=template_payload,
+        insight_messages=report_contract.executive_summary,
+    )
+    template_payload["block_payload"] = block_payload
+
+    return SandboxResultAsset(
+        scenario=input_std.scenario,
+        metric_months=months,
+        analysis_summary=analysis_summary,
+        domain_quality=domain_quality,
+        join_quality=join_quality,
+        hospital_records=records,
+        handoff_candidates=handoff_candidates,
+        dashboard_payload=DashboardPayload(
+            layout_type="dynamic_dashboard",
+            chart_data=report_contract.main_trend_chart.dict() if report_contract.main_trend_chart else {},
+            top_performers=[{"name": row[0], "val": row[1]} for row in (report_contract.top_efficiency_hospitals.rows if report_contract.top_efficiency_hospitals else [])],
+            insight_messages=report_contract.executive_summary,
+            template_payload=template_payload,
+            block_payload=block_payload,
+        ),
+        source_crm_asset_id=input_std.source_crm_asset_id,
+        source_rx_asset_id=input_std.source_rx_asset_id,
+    )
 
 
-def _build_notes(sales_frame: pd.DataFrame, target_frame: pd.DataFrame) -> list[str]:
-    notes: list[str] = []
-    if sales_frame.empty:
-        notes.append("매출 표준화 파일이 비어 있어 KPI는 0 기준으로 계산했습니다.")
-    if target_frame.empty:
-        notes.append("목표 표준화 파일이 비어 있어 달성률은 0 기준으로 계산했습니다.")
-    if not (_month_account_pairs(sales_frame) & _month_account_pairs(target_frame)):
-        notes.append("매출과 목표의 account-month 겹침이 약해 병원 단위 비교는 샘플 수준으로만 제공했습니다.")
-    return notes
+def _inject_data_to_template(
+    contract: PerformanceDashboardContract,
+    summary: AnalysisSummary,
+    records: list[HospitalAnalysisRecord]
+) -> PerformanceDashboardContract:
+    """
+    고도화된 동적 주입기:
+    템플릿 객체의 각 카드를 순회하며 metric_key에 맞는 데이터를 자동으로 찾아 채움.
+    이제 새로운 템플릿(py)만 추가하면 이 로직이 자동으로 분석툴을 찾아 매핑함.
+    """
+    
+    # 1. Summary Cards 자동 채우기
+    for card in contract.summary_cards:
+        if not card.metric_key:
+            continue
+            
+        # AnalysisSummary에서 해당 키의 값을 추출
+        raw_val = getattr(summary, card.metric_key, None)
+        if raw_val is None and isinstance(summary.custom_metrics, dict):
+            raw_val = summary.custom_metrics.get(card.metric_key)
+        
+        # 값의 성격에 따른 자동 포맷팅
+        if raw_val is None:
+            card.value = "N/A"
+        elif "amount" in card.metric_key:
+            card.value = f"{raw_val / 10000:,.0f}만원"
+        elif "rate" in card.metric_key:
+            card.value = f"{raw_val * 100:.1f}%"
+            card.status = "good" if raw_val >= 0.9 else "warning"
+        else:
+            card.value = f"{raw_val:,}"
+
+    # 2. 인사이트 자동 생성 (조건별)
+    if (summary.avg_attainment_rate or 0) < 0.8:
+        contract.executive_summary.append("⚠️ 전체 달성률 80% 미달로 타겟팅 재검토 권장.")
+    if summary.rx_linked_hospitals > 0:
+        contract.executive_summary.append(f"🔗 {summary.rx_linked_hospitals}개 병원의 처방-출고 연결성 확인됨.")
+
+    # 3. 테이블 자동 채우기 (고정 로직 - 추후 고도화 가능)
+    sorted_recs = sorted(records, key=lambda x: (x.attainment_rate or 0), reverse=True)
+    contract.top_efficiency_hospitals = TableSlot(
+        title="최고 달성률 병원 TOP 5",
+        columns=["ID", "달성률", "매출"],
+        rows=[[r.hospital_id, f"{(r.attainment_rate or 0)*100:.1f}%", f"{r.total_sales:,.0f}"] for r in sorted_recs[:5]]
+    )
+
+    return contract
 
 
-def _count_distinct(frame: pd.DataFrame, *columns: str) -> int:
-    values: set[str] = set()
-    if frame.empty:
-        return 0
-    for row in frame.to_dict(orient="records"):
-        for column in columns:
-            value = str(row.get(column, "")).strip()
-            if value:
-                values.add(value)
-                break
-    return len(values)
+def _build_report_template_payload(
+    input_std: SandboxInputStandard,
+    analysis_summary: AnalysisSummary,
+    domain_quality: DomainQualitySummary,
+    join_quality: JoinQualitySummary,
+    official_kpi_6: dict[str, float | str],
+) -> dict:
+    return _build_report_template_payload_from_builders(
+        input_std=input_std,
+        analysis_summary=analysis_summary,
+        domain_quality=domain_quality,
+        join_quality=join_quality,
+        official_kpi_6=official_kpi_6,
+    )
 
 
-def _fill_rate(frame: pd.DataFrame, column: str, total_rows: int) -> float:
-    if frame.empty or column not in frame.columns:
-        return 0.0
-    filled = sum(1 for value in frame[column].tolist() if str(value).strip())
-    return round((filled / total_rows) * 100.0, 1)
+def _build_dashboard_block_payload(template_payload: dict, insight_messages: list[str]) -> dict:
+    return _build_dashboard_block_payload_from_builders(
+        template_payload=template_payload,
+        insight_messages=insight_messages,
+    )
 
 
-def _either_fill_rate(frame: pd.DataFrame, columns: list[str], total_rows: int) -> float:
-    if frame.empty:
-        return 0.0
-    filled = 0
-    for row in frame.to_dict(orient="records"):
-        if any(str(row.get(column, "")).strip() for column in columns):
-            filled += 1
-    return round((filled / total_rows) * 100.0, 1)
+def _evaluate_handoff_candidates(
+    join_quality: JoinQualitySummary,
+    analysis_summary: AnalysisSummary,
+    has_rx: bool,
+) -> list[PlannedHandoffCandidate]:
+    """Territory와 Builder로의 handoff 가능 여부 판단."""
+    candidates = []
+
+    # Territory handoff 조건:
+    # - CRM × Sales 조인율 60% 이상
+    # - 병원 수 10개 이상
+    territory_eligible = (
+        join_quality.crm_sales_join_rate >= 0.6
+        and analysis_summary.total_hospitals >= 10
+    )
+    candidates.append(PlannedHandoffCandidate(
+        module="territory",
+        condition="CRM×Sales 조인율 ≥ 60% AND 병원 수 ≥ 10",
+        is_eligible=territory_eligible,
+        blocking_reason=None if territory_eligible else (
+            f"조인율 {join_quality.crm_sales_join_rate:.0%} "
+            f"또는 병원 수 {analysis_summary.total_hospitals}개 부족"
+        ),
+    ))
+
+    # Builder handoff 조건:
+    # - analysis_summary 존재 (매출/CRM 중 하나라도)
+    # - 1개 월 이상 분석
+    builder_eligible = analysis_summary.total_months >= 1
+    candidates.append(PlannedHandoffCandidate(
+        module="builder",
+        condition="분석 월 ≥ 1개월",
+        is_eligible=builder_eligible,
+        blocking_reason=None if builder_eligible else "분석 가능한 월 데이터 없음",
+    ))
+
+    return candidates
+

@@ -1,24 +1,40 @@
+"""
+Territory Result Asset
+
+OPS에 전달되는 Territory 분석의 최종 출력물.
+HTML Builder가 이 자산을 받아 인터랙티브 지도 대시보드를 렌더링한다.
+"""
+
 from __future__ import annotations
-
-from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Optional
+from pydantic import BaseModel, Field
+from common.asset_versions import TERRITORY_RESULT_SCHEMA_VERSION
+
+from modules.territory.schemas import (
+    MapMarker, RepRoute, RegionZone,
+    TerritoryGap, TerritoryCoverageSummary, TerritoryOptimizationSummary,
+)
+from modules.territory.templates import TerritoryMapContract
 
 
-@dataclass
-class TerritoryResultAsset:
-    company_key: str
+class TerritoryResultAsset(BaseModel):
+    schema_version: str = Field(default=TERRITORY_RESULT_SCHEMA_VERSION)
     asset_type: str = "territory_result_asset"
-    source_module: str = "territory"
-    metric_version: str = "territory_kpi_engine_v1"
-    generated_at: str = field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
-    coverage_summary: dict[str, Any] = field(default_factory=dict)
-    optimization_summary: dict[str, Any] = field(default_factory=dict)
-    markers: list[dict[str, Any]] = field(default_factory=list)
-    routes: list[dict[str, Any]] = field(default_factory=list)
-    region_zones: list[dict[str, Any]] = field(default_factory=list)
-    gaps: list[dict[str, Any]] = field(default_factory=list)
-    notes: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+    # 지도 템플릿 (렌더링 규격)
+    map_contract: TerritoryMapContract
+
+    # 지도 데이터
+    markers: list[MapMarker] = Field(default_factory=list)
+    routes: list[RepRoute] = Field(default_factory=list)
+    region_zones: list[RegionZone] = Field(default_factory=list)
+    gaps: list[TerritoryGap] = Field(default_factory=list)
+
+    # 분석 요약
+    coverage_summary: TerritoryCoverageSummary
+    optimization_summary: TerritoryOptimizationSummary
+
+    # 메타
+    generated_at: datetime = Field(default_factory=datetime.now)
+    source_sandbox_scenario: Optional[str] = None

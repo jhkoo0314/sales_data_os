@@ -1,124 +1,196 @@
 from __future__ import annotations
 
-import re
-from datetime import datetime
+import io
+from dataclasses import dataclass, field
+from typing import Any
 
 import pandas as pd
 
-
-def normalize_header(value: str) -> str:
-    text = str(value).replace("\ufeff", "").strip().lower()
-    text = re.sub(r"\([^)]*\)", "", text)
-    return re.sub(r"[_\-\s/]+", "", text)
+from .models import IntakeFix
 
 
-def clean_dataframe_headers(frame: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
-    cleaned_headers: list[str] = []
-    fixes: list[str] = []
+def _load_uploaded_frame(info: dict[str, Any]) -> pd.DataFrame:
+    file_bytes = info["file_bytes"]
+    file_name = str(info.get("name") or "").lower()
+    if file_name.endswith(".csv") or str(info.get("file_ext") or "").lower() == ".csv":
+        return pd.read_csv(io.BytesIO(file_bytes))
+    return pd.read_excel(io.BytesIO(file_bytes))
+
+
+def _normalize_header_name(name: Any) -> str:
+    return " ".join(str(name).strip().split())
+
+
+def _deduplicate_headers(columns: list[str]) -> tuple[list[str], int]:
     seen: dict[str, int] = {}
-
-    for raw_header in frame.columns.tolist():
-        cleaned = str(raw_header).replace("\ufeff", "").strip()
-        if cleaned != str(raw_header):
-            fixes.append(f"헤더 공백 또는 BOM 정리: {raw_header} -> {cleaned}")
-        duplicate_count = seen.get(cleaned, 0)
-        seen[cleaned] = duplicate_count + 1
-        if duplicate_count > 0:
-            deduped = f"{cleaned}_{duplicate_count + 1}"
-            fixes.append(f"중복 헤더 정리: {cleaned} -> {deduped}")
-            cleaned = deduped
-        cleaned_headers.append(cleaned)
-
-    fixed = frame.copy()
-    fixed.columns = cleaned_headers
-    return fixed, fixes
-
-
-def clean_string_cells(frame: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
-    fixed = frame.copy()
-    fixes: list[str] = []
-    object_columns = fixed.columns.tolist()
-    for column in object_columns:
-        series = fixed[column]
-        if not pd.api.types.is_object_dtype(series) and not pd.api.types.is_string_dtype(series):
+    deduped: list[str] = []
+    changed = 0
+    for column in columns:
+        count = seen.get(column, 0)
+        seen[column] = count + 1
+        if count == 0:
+            deduped.append(column)
             continue
-        cleaned = (
-            series.fillna("")
-            .map(lambda value: " ".join(str(value).replace("\ufeff", "").strip().split()) if str(value).strip() else "")
-            .replace("", pd.NA)
-        )
-        if not cleaned.equals(series):
-            fixes.append(f"{column} 컬럼의 문자열 공백값을 정리했습니다.")
-            fixed[column] = cleaned
-    return fixed, fixes
+        changed += 1
+        deduped.append(f"{column}_{count + 1}")
+    return deduped, changed
 
 
-def drop_duplicate_rows(frame: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
-    before = len(frame)
-    deduped = frame.drop_duplicates().reset_index(drop=True)
-    removed = before - len(deduped)
-    if removed <= 0:
-        return deduped, []
-    return deduped, [f"완전히 같은 행 {removed}건을 제거했습니다."]
+def _looks_like_month_column(column_name: str) -> bool:
+    lowered = column_name.lower()
+    return any(token in lowered for token in ["yyyymm", "month", "월", "기준월", "매출월", "목표월"])
 
 
-def normalize_month_value(value: object) -> str | None:
+def _looks_like_date_column(column_name: str) -> bool:
+    lowered = column_name.lower()
+    return any(token in lowered for token in ["date", "일자", "날짜", "방문일", "활동일", "출고일", "납품일"])
+
+
+def _normalize_month_value(value: Any) -> str | Any:
     if value is None or (isinstance(value, float) and pd.isna(value)):
-        return None
-
-    if isinstance(value, pd.Timestamp):
-        return value.strftime("%Y%m")
-
-    text = str(value).replace("\ufeff", "").strip()
+        return value
+    text = str(value).strip()
     if not text:
-        return None
-
-    if re.fullmatch(r"(19|20)\d{2}(0[1-9]|1[0-2])", text):
-        return text
-
-    month_match = re.fullmatch(r"((19|20)\d{2})[./-](0?[1-9]|1[0-2])", text)
-    if month_match:
-        return f"{month_match.group(1)}{month_match.group(3).zfill(2)}"
-
-    date_match = re.fullmatch(
-        r"((19|20)\d{2})[./-](0?[1-9]|1[0-2])[./-](0?[1-9]|[12]\d|3[01])",
-        text,
+        return value
+    compact = (
+        text.replace("-", "")
+        .replace(".", "")
+        .replace("/", "")
+        .replace(" ", "")
     )
-    if date_match:
-        return f"{date_match.group(1)}{date_match.group(3).zfill(2)}"
-
-    compact_date = re.fullmatch(r"((19|20)\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])", text)
-    if compact_date:
-        return f"{compact_date.group(1)}{compact_date.group(3)}"
-
+    if len(compact) >= 6 and compact[:6].isdigit():
+        year = compact[:4]
+        month = compact[4:6]
+        if 1 <= int(month) <= 12:
+            return f"{year}{month}"
     parsed = pd.to_datetime(text, errors="coerce")
-    if pd.notna(parsed):
-        return parsed.strftime("%Y%m")
+    if pd.isna(parsed):
+        return value
+    return f"{parsed.year:04d}{parsed.month:02d}"
 
-    return None
+
+def _normalize_date_value(value: Any) -> str | Any:
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return value
+    parsed = pd.to_datetime(value, errors="coerce")
+    if pd.isna(parsed):
+        return value
+    return parsed.strftime("%Y-%m-%d")
 
 
-def build_period_coverage(frame: pd.DataFrame, column_name: str) -> dict[str, object] | None:
-    if column_name not in frame.columns:
-        return None
-
-    months = sorted(
-        {
-            token
-            for token in frame[column_name].map(normalize_month_value).tolist()
-            if token
-        }
+def _count_changes(before: pd.Series, after: pd.Series) -> int:
+    return sum(
+        1
+        for prev, current in zip(before.tolist(), after.tolist(), strict=False)
+        if not (pd.isna(prev) and pd.isna(current)) and str(prev) != str(current)
     )
-    if not months:
-        return None
 
-    start_month = months[0]
-    end_month = months[-1]
-    start = datetime.strptime(start_month, "%Y%m")
-    end = datetime.strptime(end_month, "%Y%m")
-    month_count = (end.year - start.year) * 12 + (end.month - start.month) + 1
-    return {
-        "start_month": start_month,
-        "end_month": end_month,
-        "month_count": month_count,
-    }
+
+@dataclass
+class IntakeFixerResult:
+    dataframe: pd.DataFrame | None
+    columns: list[str]
+    row_count: int
+    preview_rows: list[dict[str, Any]] = field(default_factory=list)
+    fixes: list[IntakeFix] = field(default_factory=list)
+
+
+def apply_basic_intake_fixes_to_dataframe(source_key: str, dataframe: pd.DataFrame | None) -> IntakeFixerResult:
+    if dataframe is None:
+        return IntakeFixerResult(
+            dataframe=None,
+            columns=[],
+            row_count=0,
+            preview_rows=[],
+            fixes=[],
+        )
+
+    df = dataframe.copy()
+    fixes: list[IntakeFix] = []
+
+    original_columns = [str(column) for column in df.columns]
+    normalized_columns = [_normalize_header_name(column) for column in original_columns]
+    if normalized_columns != original_columns:
+        change_count = sum(1 for before, after in zip(original_columns, normalized_columns, strict=False) if before != after)
+        df.columns = normalized_columns
+        fixes.append(
+            IntakeFix(
+                source_key=source_key,
+                fix_type="trim_column_names",
+                message="컬럼명 앞뒤 공백과 중복 공백을 정리했습니다.",
+                affected_count=change_count,
+            )
+        )
+    deduped_columns, deduped_count = _deduplicate_headers([str(column) for column in df.columns])
+    if deduped_count:
+        df.columns = deduped_columns
+        fixes.append(
+            IntakeFix(
+                source_key=source_key,
+                fix_type="deduplicate_headers",
+                message="중복 컬럼명을 구분 가능한 이름으로 정리했습니다.",
+                affected_count=deduped_count,
+            )
+        )
+
+    before_rows = len(df)
+    df = df.drop_duplicates()
+    duplicate_removed = before_rows - len(df)
+    if duplicate_removed:
+        fixes.append(
+            IntakeFix(
+                source_key=source_key,
+                fix_type="drop_duplicate_rows",
+                message="완전히 같은 행을 제거했습니다.",
+                affected_count=duplicate_removed,
+            )
+        )
+
+    for column in list(df.columns):
+        series_before = df[column].copy()
+        if _looks_like_month_column(column):
+            df[column] = df[column].map(_normalize_month_value)
+            changed = _count_changes(series_before, df[column])
+            if changed:
+                fixes.append(
+                    IntakeFix(
+                        source_key=source_key,
+                        fix_type="normalize_month_format",
+                        message=f"`{column}` 값을 YYYYMM 기준으로 맞췄습니다.",
+                        affected_count=changed,
+                    )
+                )
+        elif _looks_like_date_column(column):
+            df[column] = df[column].map(_normalize_date_value)
+            changed = _count_changes(series_before, df[column])
+            if changed:
+                fixes.append(
+                    IntakeFix(
+                        source_key=source_key,
+                        fix_type="normalize_date_format",
+                        message=f"`{column}` 값을 YYYY-MM-DD 기준으로 맞췄습니다.",
+                        affected_count=changed,
+                    )
+                )
+
+    preview_rows = df.head(3).where(pd.notna(df), None).to_dict("records")
+    return IntakeFixerResult(
+        dataframe=df,
+        columns=[str(column) for column in df.columns],
+        row_count=int(len(df)),
+        preview_rows=preview_rows,
+        fixes=fixes,
+    )
+
+
+def apply_basic_intake_fixes(source_key: str, info: dict[str, Any]) -> IntakeFixerResult:
+    if "file_bytes" not in info:
+        return IntakeFixerResult(
+            dataframe=None,
+            columns=[str(column) for column in info.get("columns", []) if column is not None],
+            row_count=int(info.get("row_count") or 0),
+            preview_rows=[row for row in info.get("preview", []) if isinstance(row, dict)],
+            fixes=[],
+        )
+
+    return apply_basic_intake_fixes_to_dataframe(source_key, _load_uploaded_frame(info))

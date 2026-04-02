@@ -12,6 +12,9 @@ from modules.prescription.service import build_prescription_result_asset
 from modules.radar.service import build_radar_result_asset
 from modules.sandbox.service import build_sandbox_result_asset
 from modules.territory.service import build_territory_result_asset
+from modules.payloads.service import build_all_builder_payloads
+from modules.builder.service import build_all_previews
+from modules.validation.service import validate_all_modules
 
 
 def _make_company(prefix: str) -> str:
@@ -274,5 +277,314 @@ def test_build_radar_result_asset_creates_json() -> None:
         assert result["summary"]["signal_count"] == 4
         assert result["signals"]
         assert "sandbox_summary" in result
+    finally:
+        _cleanup(company_key)
+
+
+def test_validation_builds_module_and_meta_summaries() -> None:
+    company_key = _make_company("phase7_validation")
+    try:
+        crm_root = _standardized_root(company_key, "crm")
+        sandbox_root = _standardized_root(company_key, "sandbox")
+        prescription_root = _standardized_root(company_key, "prescription")
+        territory_root = _standardized_root(company_key, "territory")
+        crm_root.mkdir(parents=True, exist_ok=True)
+        sandbox_root.mkdir(parents=True, exist_ok=True)
+        prescription_root.mkdir(parents=True, exist_ok=True)
+        territory_root.mkdir(parents=True, exist_ok=True)
+
+        pd.DataFrame(
+            {
+                "activity_date": ["2025-01-03", "2025-02-01"],
+                "metric_month": ["202501", "202502"],
+                "rep_id": ["R001", "R002"],
+                "rep_name": ["김영업", "박영업"],
+                "account_name": ["서울병원", "부산병원"],
+                "activity_type": ["PT", "Contact"],
+                "channel": ["대면", "전화"],
+                "product_mentions": ["A제품", ""],
+            }
+        ).to_excel(crm_root / "ops_crm_activity.xlsx", index=False)
+        pd.DataFrame(
+            {
+                "account_id": ["H001", "H002"],
+                "account_name": ["서울병원", "부산병원"],
+                "rep_id": ["R001", "R002"],
+                "rep_name": ["김영업", "박영업"],
+            }
+        ).to_excel(crm_root / "ops_hospital_master.xlsx", index=False)
+        pd.DataFrame({"rep_id": ["R001", "R002"], "rep_name": ["김영업", "박영업"]}).to_excel(
+            crm_root / "ops_company_master.xlsx", index=False
+        )
+
+        pd.DataFrame(
+            {
+                "metric_month": ["202501", "202502"],
+                "account_id": ["A001", "A001"],
+                "account_name": ["서울병원", "서울병원"],
+                "brand_name": ["A제품", "A제품"],
+                "sales_amount": [100, 80],
+                "sales_qty": [1, 1],
+            }
+        ).to_excel(sandbox_root / "ops_sales_records.xlsx", index=False)
+        pd.DataFrame(
+            {
+                "metric_month": ["202501", "202502"],
+                "account_id": ["A001", "A001"],
+                "account_name": ["서울병원", "서울병원"],
+                "brand_name": ["A제품", "A제품"],
+                "target_amount": [100, 100],
+            }
+        ).to_excel(sandbox_root / "ops_target_records.xlsx", index=False)
+
+        pd.DataFrame(
+            {
+                "ship_date": ["2025-01-03", "2025-02-01"],
+                "metric_month": ["202501", "202502"],
+                "pharmacy_name": ["가온약국", "나눔약국"],
+                "brand_name": ["A제품", "A제품"],
+                "quantity": [10, 15],
+                "amount": [1000, 1500],
+            }
+        ).to_excel(prescription_root / "ops_prescription_standard.xlsx", index=False)
+
+        pd.DataFrame(
+            {
+                "metric_month": ["202501", "202502"],
+                "rep_id": ["R001", "R002"],
+                "rep_name": ["김영업", "박영업"],
+                "account_name": ["서울병원", "부산병원"],
+                "activity_type": ["PT", "Contact"],
+                "latitude": ["37.5", ""],
+                "longitude": ["127.0", ""],
+            }
+        ).to_excel(territory_root / "ops_territory_activity.xlsx", index=False)
+
+        build_crm_result_asset(company_key)
+        build_sandbox_result_asset(company_key)
+        build_prescription_result_asset(company_key)
+        build_territory_result_asset(company_key)
+        build_radar_result_asset(company_key)
+        result = validate_all_modules(company_key)
+
+        meta_path = Path("data") / "validation" / company_key / "_meta" / "latest_validation_summary.json"
+        crm_path = Path("data") / "validation" / company_key / "crm" / "crm_validation_summary.json"
+        radar_path = Path("data") / "validation" / company_key / "radar" / "radar_validation_summary.json"
+
+        assert meta_path.exists()
+        assert crm_path.exists()
+        assert radar_path.exists()
+        assert result["overall_status"] in {"PASS", "WARN", "FAIL"}
+        assert len(result["steps"]) == 5
+        assert result["summary_by_module"]["crm"]["next_modules"] == ["prescription", "sandbox"]
+    finally:
+        _cleanup(company_key)
+
+
+def test_payload_builder_writes_payloads_without_recalculation() -> None:
+    company_key = _make_company("phase8_payload")
+    try:
+        crm_root = _standardized_root(company_key, "crm")
+        sandbox_root = _standardized_root(company_key, "sandbox")
+        prescription_root = _standardized_root(company_key, "prescription")
+        territory_root = _standardized_root(company_key, "territory")
+        crm_root.mkdir(parents=True, exist_ok=True)
+        sandbox_root.mkdir(parents=True, exist_ok=True)
+        prescription_root.mkdir(parents=True, exist_ok=True)
+        territory_root.mkdir(parents=True, exist_ok=True)
+
+        pd.DataFrame(
+            {
+                "activity_date": ["2025-01-03", "2025-02-01"],
+                "metric_month": ["202501", "202502"],
+                "rep_id": ["R001", "R002"],
+                "rep_name": ["김영업", "박영업"],
+                "account_name": ["서울병원", "부산병원"],
+                "activity_type": ["PT", "Contact"],
+                "channel": ["대면", "전화"],
+                "product_mentions": ["A제품", ""],
+            }
+        ).to_excel(crm_root / "ops_crm_activity.xlsx", index=False)
+        pd.DataFrame(
+            {
+                "account_id": ["H001", "H002"],
+                "account_name": ["서울병원", "부산병원"],
+                "rep_id": ["R001", "R002"],
+                "rep_name": ["김영업", "박영업"],
+            }
+        ).to_excel(crm_root / "ops_hospital_master.xlsx", index=False)
+        pd.DataFrame({"rep_id": ["R001", "R002"], "rep_name": ["김영업", "박영업"]}).to_excel(
+            crm_root / "ops_company_master.xlsx", index=False
+        )
+
+        pd.DataFrame(
+            {
+                "metric_month": ["202501", "202502"],
+                "account_id": ["A001", "A001"],
+                "account_name": ["서울병원", "서울병원"],
+                "brand_name": ["A제품", "A제품"],
+                "sales_amount": [100, 80],
+                "sales_qty": [1, 1],
+            }
+        ).to_excel(sandbox_root / "ops_sales_records.xlsx", index=False)
+        pd.DataFrame(
+            {
+                "metric_month": ["202501", "202502"],
+                "account_id": ["A001", "A001"],
+                "account_name": ["서울병원", "서울병원"],
+                "brand_name": ["A제품", "A제품"],
+                "target_amount": [100, 100],
+            }
+        ).to_excel(sandbox_root / "ops_target_records.xlsx", index=False)
+
+        pd.DataFrame(
+            {
+                "ship_date": ["2025-01-03", "2025-02-01"],
+                "metric_month": ["202501", "202502"],
+                "pharmacy_name": ["가온약국", "나눔약국"],
+                "brand_name": ["A제품", "A제품"],
+                "quantity": [10, 15],
+                "amount": [1000, 1500],
+            }
+        ).to_excel(prescription_root / "ops_prescription_standard.xlsx", index=False)
+
+        pd.DataFrame(
+            {
+                "metric_month": ["202501", "202502"],
+                "rep_id": ["R001", "R002"],
+                "rep_name": ["김영업", "박영업"],
+                "account_name": ["서울병원", "부산병원"],
+                "activity_type": ["PT", "Contact"],
+                "latitude": ["37.5", ""],
+                "longitude": ["127.0", ""],
+            }
+        ).to_excel(territory_root / "ops_territory_activity.xlsx", index=False)
+
+        build_crm_result_asset(company_key)
+        build_sandbox_result_asset(company_key)
+        build_prescription_result_asset(company_key)
+        build_territory_result_asset(company_key)
+        build_radar_result_asset(company_key)
+        validate_all_modules(company_key)
+        result = build_all_builder_payloads(company_key)
+
+        crm_payload_path = Path("data") / "validation" / company_key / "crm" / "crm_builder_payload.json"
+        builder_input_path = Path("data") / "validation" / company_key / "builder" / "crm_builder_input_standard.json"
+        index_path = Path("data") / "validation" / company_key / "builder" / "builder_payload_index.json"
+
+        assert crm_payload_path.exists()
+        assert builder_input_path.exists()
+        assert index_path.exists()
+        assert result["modules"]["crm"]["builder_input_standard"]["template_key"] == "crm_analysis"
+        assert "ALL|ALL" in result["modules"]["crm"]["builder_payload"]["scope_data"]
+        assert result["modules"]["prescription"]["builder_payload"]["filters"]["months"] == ["2025-01", "2025-02"]
+        assert result["modules"]["territory"]["builder_payload"]["rep_index"]["R001"]["months"][0]["value"] == "202501"
+        assert result["modules"]["radar"]["builder_payload"]["signals"]
+    finally:
+        _cleanup(company_key)
+
+
+def test_builder_renders_preview_files_from_payload_only() -> None:
+    company_key = _make_company("phase9_builder")
+    try:
+        crm_root = _standardized_root(company_key, "crm")
+        sandbox_root = _standardized_root(company_key, "sandbox")
+        prescription_root = _standardized_root(company_key, "prescription")
+        territory_root = _standardized_root(company_key, "territory")
+        crm_root.mkdir(parents=True, exist_ok=True)
+        sandbox_root.mkdir(parents=True, exist_ok=True)
+        prescription_root.mkdir(parents=True, exist_ok=True)
+        territory_root.mkdir(parents=True, exist_ok=True)
+
+        pd.DataFrame(
+            {
+                "activity_date": ["2025-01-03", "2025-02-01"],
+                "metric_month": ["202501", "202502"],
+                "rep_id": ["R001", "R002"],
+                "rep_name": ["김영업", "박영업"],
+                "account_name": ["서울병원", "부산병원"],
+                "activity_type": ["PT", "Contact"],
+                "channel": ["대면", "전화"],
+                "product_mentions": ["A제품", ""],
+            }
+        ).to_excel(crm_root / "ops_crm_activity.xlsx", index=False)
+        pd.DataFrame(
+            {
+                "account_id": ["H001", "H002"],
+                "account_name": ["서울병원", "부산병원"],
+                "rep_id": ["R001", "R002"],
+                "rep_name": ["김영업", "박영업"],
+            }
+        ).to_excel(crm_root / "ops_hospital_master.xlsx", index=False)
+        pd.DataFrame({"rep_id": ["R001", "R002"], "rep_name": ["김영업", "박영업"]}).to_excel(
+            crm_root / "ops_company_master.xlsx", index=False
+        )
+
+        pd.DataFrame(
+            {
+                "metric_month": ["202501", "202502"],
+                "account_id": ["A001", "A001"],
+                "account_name": ["서울병원", "서울병원"],
+                "brand_name": ["A제품", "A제품"],
+                "sales_amount": [100, 80],
+                "sales_qty": [1, 1],
+            }
+        ).to_excel(sandbox_root / "ops_sales_records.xlsx", index=False)
+        pd.DataFrame(
+            {
+                "metric_month": ["202501", "202502"],
+                "account_id": ["A001", "A001"],
+                "account_name": ["서울병원", "서울병원"],
+                "brand_name": ["A제품", "A제품"],
+                "target_amount": [100, 100],
+            }
+        ).to_excel(sandbox_root / "ops_target_records.xlsx", index=False)
+
+        pd.DataFrame(
+            {
+                "ship_date": ["2025-01-03", "2025-02-01"],
+                "metric_month": ["202501", "202502"],
+                "pharmacy_name": ["가온약국", "나눔약국"],
+                "brand_name": ["A제품", "A제품"],
+                "quantity": [10, 15],
+                "amount": [1000, 1500],
+            }
+        ).to_excel(prescription_root / "ops_prescription_standard.xlsx", index=False)
+
+        pd.DataFrame(
+            {
+                "metric_month": ["202501", "202502"],
+                "rep_id": ["R001", "R002"],
+                "rep_name": ["김영업", "박영업"],
+                "account_name": ["서울병원", "부산병원"],
+                "activity_type": ["PT", "Contact"],
+                "latitude": ["37.5", ""],
+                "longitude": ["127.0", ""],
+            }
+        ).to_excel(territory_root / "ops_territory_activity.xlsx", index=False)
+
+        build_crm_result_asset(company_key)
+        build_sandbox_result_asset(company_key)
+        build_prescription_result_asset(company_key)
+        build_territory_result_asset(company_key)
+        build_radar_result_asset(company_key)
+        validate_all_modules(company_key)
+        build_all_builder_payloads(company_key)
+        result = build_all_previews(company_key)
+
+        html_path = Path("data") / "validation" / company_key / "builder" / "crm_analysis_preview.html"
+        result_asset_path = Path("data") / "validation" / company_key / "builder" / "crm_analysis_preview_result_asset.json"
+        total_valid_path = Path("data") / "validation" / company_key / "builder" / "total_valid_preview.html"
+
+        assert html_path.exists()
+        assert result_asset_path.exists()
+        assert total_valid_path.exists()
+        assert result["builder_validation_summary"]["quality_status"] == "PASS"
+        assert "crm" in result["reports"]
+        html_text = html_path.read_text(encoding="utf-8")
+        total_valid_text = total_valid_path.read_text(encoding="utf-8")
+        assert "window.__CRM_DATA__ = {};" not in html_text
+        assert '"ALL|ALL"' in html_text
+        assert "crm_analysis_preview.html" in total_valid_text
     finally:
         _cleanup(company_key)
