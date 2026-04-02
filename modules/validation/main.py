@@ -1,10 +1,10 @@
 """
-Bridge entrypoint for the Validation Layer (OPS) API.
+Validation Layer API entrypoint for Sales Data OS.
 
-This keeps the current FastAPI app wired through `ops_core.main`
-while new code can start importing `modules.validation.main`.
+The full API server is outside the current local pipeline scope,
+so this module exposes a lightweight placeholder object.
 """
 
-from ops_core.main import app
+app = object()
 
 __all__ = ["app"]

@@ -69,10 +69,30 @@ def _build_standard_profile(
 
 _PROFILE_MAP = {
     "hangyeol_pharma": _build_standard_profile("hangyeol_pharma"),
-    "daon_pharma": _build_standard_profile("daon_pharma"),
     "monthly_merge_pharma": _build_standard_profile("monthly_merge_pharma"),
     "tera_pharma": _build_standard_profile("tera_pharma"),
 }
+
+_PROFILE_MAP["daon_pharma"] = CompanyOpsProfile(
+    company_key="daon_pharma",
+    source_targets={
+        "crm_activity": ("crm/crm_activity_raw.xlsx", "excel"),
+        "crm_rep_master": ("crm/crm_account_assignment.xlsx", "excel"),
+        "crm_account_assignment": ("company/account_master.xlsx", "excel"),
+        "crm_rules": ("crm/crm_rules.csv", "csv"),
+        "sales": ("sales/sales_raw.xlsx", "excel"),
+        "target": ("sales/target_raw.xlsx", "excel"),
+        "prescription": ("prescription/prescription_raw.csv", "csv"),
+        "rep_master": ("crm/crm_rep_master.xlsx", "excel"),
+    },
+    hospital_adapter_factory=HospitalAdapterConfig.hangyeol_account_example,
+    company_master_adapter_factory=CompanyMasterAdapterConfig.hangyeol_company_source_example,
+    crm_activity_adapter_factory=CrmActivityAdapterConfig.hangyeol_crm_source_example,
+    sales_adapter_factory=SalesAdapterConfig.hangyeol_sales_source_example,
+    target_adapter_factory=TargetAdapterConfig.hangyeol_target_source_example,
+    prescription_adapter_factory=CompanyPrescriptionAdapterConfig.hangyeol_fact_ship_example,
+    territory_activity_adapter_factory=TerritoryActivityAdapterConfig.hangyeol_account_example,
+)
 
 
 def get_company_ops_profile(company_key: str) -> CompanyOpsProfile:

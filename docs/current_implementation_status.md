@@ -4,6 +4,34 @@
 최근 업데이트: 2026-04-02  
 업데이트 원칙: **현재 구현 진행사항은 이 문서에만 기록한다.**
 
+## 최신 동기화 메모 (2026-04-02)
+
+이 문단은 긴 이력 본문보다 우선하는 최신 기준이다.
+
+- 공식 완료 단계:
+  - `Phase 1 ~ Phase 9`
+- 현재 다음 시작점:
+  - `Phase 10. Worker Runtime 구현`
+- 공식 산출 경로:
+  - `data/standard/{company_key}/...`
+  - `data/validation/{company_key}/...`
+- 경로 호환:
+  - 코드 내부에서 과거 키(`ops_standard`, `ops_validation`)를 읽어도
+    실제 저장/조회는 위 공식 경로로 매핑되게 정리했다.
+
+실실행 확인:
+
+- `daon_pharma` 기준 통합 실행(`integrated_full`) 성공
+- 단계:
+  - `crm`, `prescription`, `sandbox`, `territory`, `radar`, `builder` PASS
+- 결과 보고서:
+  - `crm_analysis_preview.html`
+  - `sandbox_report_preview.html`
+  - `prescription_flow_preview.html`
+  - `territory_map_preview.html`
+  - `radar_report_preview.html`
+  - `total_valid_preview.html`
+
 ## 1. 이 문서의 목적
 
 이 문서는 지금까지 무엇을 구현했는지,

@@ -25,4 +25,10 @@ def get_company_root(root: Path, bucket: str, company_key: str | None = None) ->
         override_root = os.environ.get("OPS_COMPANY_SOURCE_ROOT", "").strip()
         if override_root:
             return Path(override_root)
-    return root / "data" / bucket / active_key
+
+    bucket_alias_map = {
+        "ops_standard": "standard",
+        "ops_validation": "validation",
+    }
+    resolved_bucket = bucket_alias_map.get(bucket, bucket)
+    return root / "data" / resolved_bucket / active_key

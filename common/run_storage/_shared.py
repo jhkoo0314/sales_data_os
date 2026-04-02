@@ -345,7 +345,7 @@ def _build_agent_summary_for_builder_artifact(report_key: str, file_role: str, f
 
 
 def _validation_root(company_key: str) -> Path:
-    return Path(r"C:\sfe_master_ops\data\ops_validation") / company_key
+    return Path(r"C:\sales_os\data\validation") / company_key
 
 
 def _build_report_contexts_from_pipeline_summary(

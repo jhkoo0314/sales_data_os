@@ -24,7 +24,7 @@
 - 문서 동기화 완료
 - 디자인 가이드 및 HTML 시안 정리
 - 핵심 페이지 기본 뼈대 구현
-- `Phase 1 ~ Phase 3` 공식 유지
+- `Phase 1 ~ Phase 9` 공식 완료
 - 백엔드 로직 설계 문서 완료
 - Python/worker 의존성 파일 정리
 - 보고서 템플릿 검토 및 패키지 기준 정리
@@ -41,22 +41,23 @@
   - `Phase 4` intake 완료
   - `Phase 5` normalization 완료
   - `Phase 5-1` dirty raw / monthly merge 완료
+  - `Phase 6` KPI/result asset 완료
+  - `Phase 7` validation 완료
+  - `Phase 8` payload 완료
+  - `Phase 9` builder preview 완료
   - `scripts/` 구조를 기능별 폴더로 정리 완료
 
 다음 구현 우선순위:
 
-- `Phase 6 ~ Phase 10` 백엔드 구현
-- 구현 순서:
-  - `Phase 6` KPI 계산
-  - `Phase 7` validation
-  - `Phase 8` payload
-  - `Phase 9` builder
-  - 그 다음 `Phase 10` worker runtime
+- `Phase 10` Worker Runtime 구현
 
 중요:
 
-- 현재 저장소는 `Phase 6부터 Python 백엔드 로직 기준으로 계속 구현하는 상태`다
+- 현재 저장소는 `Phase 10부터 Python 백엔드 로직 기준으로 계속 구현하는 상태`다
 - 공식 계산, validation, builder 입력은 TypeScript 재구현이 아니라 원본 Python 로직을 단일 소스로 사용해야 한다
+- 산출 경로는 현재 기준으로 아래를 사용한다
+  - `data/standard/{company_key}/...`
+  - `data/validation/{company_key}/...`
 
 ## 주요 문서
 
@@ -102,7 +103,7 @@
 
 ## 백엔드 우선순위
 
-현재 기준으로는 `Phase 6 ~ Phase 10`을
+현재 기준으로는 `Phase 10`을
 원본 Python 백엔드 로직 기준으로 구현하는 것이 우선이다.
 
 `입력 -> 검증 -> 정규화 -> KPI 계산 -> validation -> result asset / payload -> builder`
@@ -112,7 +113,7 @@
 - 업로드 입구와 원본 raw 저장 구조는 남아 있다
 - 기존 TypeScript 백엔드 구현은 삭제했다
 - Python intake / merge / staging / normalization은 다시 구현했다
-- 다음 구현 시작점은 `Phase 6`다
+- 다음 구현 시작점은 `Phase 10`이다
 
 현재 스크립트 구조:
 

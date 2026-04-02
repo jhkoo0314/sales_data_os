@@ -1,11 +1,8 @@
 """
 Primary Validation / Orchestration module path for Sales Data OS.
 
-New code should import from `modules.validation`.
-During migration, this package still re-exports the current `ops_core`
-implementation so runtime stability is preserved.
+This package now serves as the local validation layer for `sales_os`.
+It should not require `ops_core`.
 """
 
-from .main import app
-
-__all__ = ["app"]
+__all__: list[str] = []

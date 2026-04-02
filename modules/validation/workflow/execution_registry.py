@@ -1,6 +1,10 @@
-"""
-Compatibility bridge for execution mode and step definitions.
-"""
+from __future__ import annotations
 
-from ops_core.workflow.execution_registry import *  # noqa: F403
-from ops_core.workflow.execution_registry import _get_step_registry  # noqa: F401
+
+_EXECUTION_MODE_MODULES = {
+    "integrated_full": ["crm", "prescription", "sandbox", "territory", "radar", "builder"],
+}
+
+
+def get_execution_mode_modules(execution_mode: str) -> list[str]:
+    return list(_EXECUTION_MODE_MODULES.get(execution_mode, []))

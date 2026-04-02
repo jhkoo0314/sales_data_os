@@ -1,7 +1,24 @@
 # Sales Data OS Web - 상세 구현 계획
 
 작성일: 2026-03-30  
-상태: `ready-for-build`
+상태: `phase10-ready`
+
+## 최신 동기화 메모 (2026-04-02)
+
+현재 공식 단계 기준:
+
+- 완료: `Phase 1 ~ Phase 9`
+- 다음 시작: `Phase 10. Worker Runtime 구현`
+
+현재 공식 산출 경로:
+
+- `data/standard/{company_key}/...`
+- `data/validation/{company_key}/...`
+
+주의:
+
+- 과거 문서 이력에 `ops_standard`, `ops_validation` 표기가 남아 있어도
+  현재 실행 기준 경로는 위 공식 경로로 본다.
 
 ## 1. 이 문서의 목적
 
