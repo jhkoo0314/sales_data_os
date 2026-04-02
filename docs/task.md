@@ -1146,7 +1146,7 @@ Phase 5-1 후속 운영 메모:
 - 참고 경로:
   - `C:\sfe_master_ops\modules\radar\service.py`
   - `C:\sfe_master_ops\modules\radar\signal_engine.py`
-- Phase 6 필수 구현 대상은 아니고 구조 참고용이다
+- Phase 6에서는 최소 입출력 계약까지만 맞춰도 된다
 
 목적:
 
@@ -1187,86 +1187,7 @@ Phase 5-1 후속 운영 메모:
 - TypeScript 안의 대체 추정 규칙
 - 원본 Python 결과가 없을 때 임의로 채우는 fallback 계산
 
-### Phase 6-1. 서버 구조 리팩토링 계획
 
-목적:
-
-- `src/lib/server` 아래 파일이 한곳에 몰리지 않게 정리한다
-- 특히 `kpi.ts`처럼 커지는 파일을 모듈별로 나눠서 이후 Phase 7 ~ 10 구현을 안전하게 이어간다
-
-공식 분리 기준:
-
-- 내부 엔진 모듈 `4개`
-  - `intake`
-  - `kpi`
-  - `validation`
-  - `builder`
-- 운영/결과 모듈 `5개`
-  - `crm`
-  - `sandbox`
-  - `territory`
-  - `prescription`
-  - `radar`
-
-권장 구조:
-
-- `src/lib/server/shared/*`
-- `src/lib/server/intake/*`
-- `src/lib/server/normalization/*`
-- `src/lib/server/kpi/*`
-- `src/lib/server/crm/*`
-- `src/lib/server/sandbox/*`
-- `src/lib/server/territory/*`
-- `src/lib/server/prescription/*`
-- `src/lib/server/validation/*`
-- `src/lib/server/radar/*`
-- `src/lib/server/builder/*`
-
-파일 책임 규칙:
-
-- `run.ts`
-  - 실행 시작점만 담당
-- `engine.ts`
-  - 실제 계산만 담당
-- `result-asset.ts`
-  - 계산 결과를 공식 JSON 구조로 조립
-- `types.ts`
-  - 타입만 관리
-- `*.test.ts`
-  - 모듈별 테스트
-
-이번 리팩토링의 실제 첫 적용 범위:
-
-1. `kpi.ts`를 아래처럼 쪼갠다
-- `src/lib/server/kpi/run.ts`
-- `src/lib/server/kpi/types.ts`
-- `src/lib/server/kpi/shared.ts`
-- `src/lib/server/kpi/crm.ts`
-- `src/lib/server/kpi/sandbox.ts`
-
-2. 테스트도 단계명 기준에서 모듈 기준으로 바꾼다
-- `src/lib/server/phase6.test.ts` -> `src/lib/server/kpi/kpi.test.ts`
-
-3. 이후 Phase 6 나머지 구현도 같은 기준으로 이어간다
-- `prescription`
-- `territory`
-- `validation`
-- `builder`
-
-리팩토링 진행 메모:
-
-- [x] `src/lib/shared/mock-data.ts`
-- [x] `src/lib/shared/placeholder.ts`
-- [x] `src/lib/shared/source-registry.ts`
-- [x] `src/lib/server/shared/source-storage.ts`
-- [x] `src/lib/server/shared/tabular-file.ts`
-- [x] `src/lib/server/intake/analyze.ts`
-- [x] `src/lib/server/intake/registry.ts`
-- [x] `src/lib/server/intake/monthly-merge.ts`
-- [x] `src/lib/server/intake/schema.ts`
-- [x] `src/lib/server/normalization/run.ts`
-- [x] `src/lib/server/intake/intake-normalization.test.ts`
-- [x] 기존 경로는 얇은 연결 파일만 남겨서 현재 import가 바로 깨지지 않게 유지
 
 ### [ ] Phase 7. validation 구현
 

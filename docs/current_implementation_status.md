@@ -430,6 +430,49 @@
   - 현재 구현은 TypeScript 서버 코드가 계산을 다시 하고 있기 때문이다
 - 따라서 `Phase 6`은 `미완료 / 재시작 필요` 상태로 되돌린다
 
+`2026-04-02` Phase 6 CRM / Sandbox Python 재구현 진행 메모:
+
+- `modules/kpi/crm_engine.py`, `modules/kpi/sandbox_engine.py`를 현재 Python 기준 KPI 엔진 시작점으로 유지한다
+- `modules/crm/service.py`를 추가했다
+  - `data/standardized/{company_key}/crm/*`를 읽는다
+  - CRM KPI 계산을 실행한다
+  - `data/result_assets/{company_key}/crm/crm_result_asset.json`을 저장한다
+- `modules/sandbox/service.py`를 추가했다
+  - `data/standardized/{company_key}/sandbox/*`를 읽는다
+  - Sandbox KPI 6 계산을 실행한다
+  - `data/result_assets/{company_key}/sandbox/sandbox_result_asset.json`을 저장한다
+- `modules/prescription/service.py`를 추가했다
+  - `data/standardized/{company_key}/prescription/*`를 읽는다
+  - 처방 흐름 요약과 전달용 설명 데이터를 만든다
+  - `data/result_assets/{company_key}/prescription/prescription_result_asset.json`을 저장한다
+- `modules/territory/service.py`를 추가했다
+  - `data/standardized/{company_key}/territory/*`를 읽는다
+  - 담당자별 활동 범위와 지도용 문맥 데이터를 만든다
+  - `data/result_assets/{company_key}/territory/territory_result_asset.json`을 저장한다
+- `modules/radar/service.py`를 추가했다
+  - 기존 `crm / sandbox / prescription / territory` result asset을 읽는다
+  - KPI 재계산 없이 신호, 우선순위, 액션 후보를 만든다
+  - `data/result_assets/{company_key}/radar/radar_result_asset.json`을 저장한다
+- 실행 스크립트를 추가했다
+  - `scripts/kpi/run_crm_kpi.py`
+  - `scripts/kpi/run_sandbox_kpi.py`
+  - `scripts/kpi/run_prescription_kpi.py`
+  - `scripts/kpi/run_territory_kpi.py`
+  - `scripts/kpi/run_radar_kpi.py`
+- 테스트를 추가했다
+  - `tests/test_phase6_kpi.py`
+- 검증:
+  - `python -m pytest tests/test_phase6_kpi.py` 통과
+  - `python scripts/kpi/run_crm_kpi.py --company-key daon_pharma` 실행 확인
+  - `python scripts/kpi/run_sandbox_kpi.py --company-key daon_pharma` 실행 확인
+  - `python scripts/kpi/run_prescription_kpi.py --company-key daon_pharma` 실행 확인
+  - `python scripts/kpi/run_territory_kpi.py --company-key daon_pharma` 실행 확인
+  - `python scripts/kpi/run_radar_kpi.py --company-key daon_pharma` 실행 확인
+- 현재 해석:
+  - `CRM`, `Sandbox`, `Prescription`, `Territory`, `RADAR`는 Python 기준 `표준화/기존 결과 읽기 -> KPI/문맥/신호 계산 -> result asset 저장`까지 1차 연결됐다
+  - 다만 아직 `Phase 6 전체 완료`로 보지 않는다
+  - 남은 일은 CRM 세부 지표 정밀도 보강, Sandbox 병원 조인/summary 고도화, Prescription/ Territory 문맥 고도화, RADAR 신호 규칙 확장, 이후 `validation` 연결이다
+
 과거 구현 기록 보존 메모:
 
 - 아래 `2026-03-31` 기록은 당시 작업 이력 보존용으로만 남긴다
