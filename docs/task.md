@@ -1409,6 +1409,20 @@ Phase 5-1 후속 운영 메모:
 - builder 단계 path 이슈 수정 완료
   - 재검증에서 builder `PASS` 확인
 
+`2026-04-03` 동기화 메모:
+
+- `Phase 10` 완료 기준을 코드와 문서에 맞춰 확정
+- worker 안정화 반영:
+  - run 선점 처리로 중복 실행 방지
+  - 지원하지 않는 `execution_mode` 실패 처리
+- 검증 추가:
+  - `tests/test_workers/test_run_executor.py`
+  - `tests/test_workers/test_status_updater.py`
+- 후속 연결 착수:
+  - `Pipeline` 화면에서 `pipeline_runs` run 접수 API 연결
+  - `Run Detail` 화면에서 `pipeline_runs`, `pipeline_run_steps` 조회 연결
+  - 이 연결은 `Phase 11 ~ Phase 12` 진행 메모로 보고, 공식 완료 체크는 아직 올리지 않음
+
 재시작 기준 메모:
 
 - `Phase 4 ~ Phase 9`를 Python 백엔드 로직 기준으로 다시 고정한 뒤 진행한다

@@ -45,7 +45,10 @@ def _run_loop(*, poll_interval_seconds: int, once: bool, fetch_limit: int) -> No
 
             try:
                 payload = build_execution_payload(row, run_db_id)
-                updater.mark_running(run_db_id=run_db_id, worker_name=worker_name)
+                claimed = updater.mark_running(run_db_id=run_db_id, worker_name=worker_name)
+                if not claimed:
+                    print(f"[skip] db_id={run_db_id} reason=already claimed")
+                    continue
                 result = execute_pipeline_run(project_root=project_root, payload=payload)
                 updater.replace_step_rows(run_db_id=run_db_id, steps=result.get("steps") or [])
                 updater.mark_completed(run_db_id=run_db_id, result=result)

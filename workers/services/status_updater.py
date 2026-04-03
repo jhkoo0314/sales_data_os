@@ -37,21 +37,25 @@ class RunStatusUpdater:
         )
         return list(getattr(response, "data", None) or [])
 
-    def mark_running(self, *, run_db_id: str, worker_name: str) -> None:
+    def mark_running(self, *, run_db_id: str, worker_name: str) -> bool:
         if not self.enabled:
-            return
+            return False
         payload = {
             self.config.queue_status_field: "running",
             "started_at": _now_iso(),
             "worker_name": worker_name,
             "updated_at": _now_iso(),
         }
-        (
+        response = (
             self.client.table(self.config.queue_table)
             .update(payload)
             .eq("id", run_db_id)
+            .eq(self.config.queue_status_field, "pending")
+            .select("id")
             .execute()
         )
+        rows = list(getattr(response, "data", None) or [])
+        return bool(rows)
 
     def mark_completed(self, *, run_db_id: str, result: dict[str, Any]) -> None:
         if not self.enabled:

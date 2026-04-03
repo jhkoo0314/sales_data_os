@@ -49,15 +49,17 @@
 
 다음 구현 우선순위:
 
-- `Phase 10` Worker Runtime 구현
+- `Phase 11` 운영 진입 화면 연결
 
-`2026-04-02` 최신 진행 메모:
+`2026-04-03` 최신 진행 메모:
 
-- `Phase 10` 착수 완료
+- `Phase 10` 구현 완료
   - `workers/run_worker.py`
   - `workers/services/run_executor.py`
   - `workers/services/status_updater.py`
   - `pending -> running -> completed/failed` 상태 갱신 연결
+  - worker run 선점 처리 추가
+  - 지원하지 않는 `execution_mode` 실패 처리 추가
 - Supabase 스키마 마이그레이션 완료
   - 기준 파일: `supabase/sales_os_supabase_schema.sql`
   - 핵심 테이블 확인: `pipeline_runs`, `pipeline_run_steps`, `runs`, `run_steps`, `run_artifacts`, `run_report_context`, `agent_chat_logs`, `company_registry`
@@ -65,10 +67,15 @@
   - `pipeline_runs` 상태 갱신 확인
   - `pipeline_run_steps` 단계 기록 저장 확인
   - builder 단계 path 이슈 수정 후 `PASS` 확인
+- 파이프라인 화면과 run detail 화면에 Phase 10 데이터 연결 시작
+  - run 접수 API: `app/api/companies/[companyKey]/pipeline-runs/route.ts`
+  - run 상세 API: `app/api/companies/[companyKey]/pipeline-runs/[runKey]/route.ts`
+  - `Pipeline`에서 run 접수 및 polling 연결
+  - `Run Detail`에서 `pipeline_runs`, `pipeline_run_steps` polling 연결
 
 중요:
 
-- 현재 저장소는 `Phase 10부터 Python 백엔드 로직 기준으로 계속 구현하는 상태`다
+- 현재 저장소는 `Phase 10 완료` 이후 `Phase 11 ~ Phase 12` 프론트 연결로 넘어가는 상태다
 - 공식 계산, validation, builder 입력은 TypeScript 재구현이 아니라 원본 Python 로직을 단일 소스로 사용해야 한다
 - 산출 경로는 현재 기준으로 아래를 사용한다
   - `data/standard/{company_key}/...`
@@ -118,8 +125,8 @@
 
 ## 백엔드 우선순위
 
-현재 기준으로는 `Phase 10`을
-원본 Python 백엔드 로직 기준으로 구현하는 것이 우선이다.
+현재 기준으로는 `Phase 11`부터
+원본 Python 백엔드 흐름을 웹 화면과 정확히 연결하는 것이 우선이다.
 
 `입력 -> 검증 -> 정규화 -> KPI 계산 -> validation -> result asset / payload -> builder`
 
@@ -128,7 +135,7 @@
 - 업로드 입구와 원본 raw 저장 구조는 남아 있다
 - 기존 TypeScript 백엔드 구현은 삭제했다
 - Python intake / merge / staging / normalization은 다시 구현했다
-- 다음 구현 시작점은 `Phase 10`이다
+- 다음 구현 시작점은 `Phase 11`이다
 
 현재 스크립트 구조:
 

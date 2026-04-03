@@ -10,6 +10,7 @@ from modules.validation.workflow.execution_service import (
     build_execution_context,
     run_execution_mode,
 )
+from modules.validation.workflow.execution_registry import is_supported_execution_mode
 
 
 @dataclass
@@ -23,6 +24,8 @@ def _resolve_execution_mode(run_row: dict[str, Any]) -> str:
     for key in ("execution_mode", "mode"):
         value = str(run_row.get(key) or "").strip()
         if value:
+            if not is_supported_execution_mode(value):
+                raise ValueError(f"지원하지 않는 execution_mode 입니다: {value}")
             return value
     return "integrated_full"
 

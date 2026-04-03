@@ -1,17 +1,17 @@
 # Sales Data OS Web - 현재 구현 진행사항
 
 작성일: 2026-03-31  
-최근 업데이트: 2026-04-02  
+최근 업데이트: 2026-04-03  
 업데이트 원칙: **현재 구현 진행사항은 이 문서에만 기록한다.**
 
-## 최신 동기화 메모 (2026-04-02)
+## 최신 동기화 메모 (2026-04-03)
 
 이 문단은 긴 이력 본문보다 우선하는 최신 기준이다.
 
 - 공식 완료 단계:
-  - `Phase 1 ~ Phase 9`
+  - `Phase 1 ~ Phase 10`
 - 현재 다음 시작점:
-  - `Phase 10. Worker Runtime 구현`
+  - `Phase 11. 운영 진입 화면 연결`
 - 공식 산출 경로:
   - `data/standard/{company_key}/...`
   - `data/validation/{company_key}/...`
@@ -32,21 +32,23 @@
   - `radar_report_preview.html`
   - `total_valid_preview.html`
 
-`2026-04-02` Phase 10 착수 메모:
+`2026-04-03` Phase 10 완료 메모:
 
-- worker runtime 최소 뼈대를 추가했다
+- worker runtime 구현 완료
   - `workers/run_worker.py`
   - `workers/services/run_executor.py`
   - `workers/services/status_updater.py`
 - 현재 동작 범위:
   - Supabase `pending` run polling
   - `pending -> running -> completed/failed` 상태 갱신
-  - 실행 결과 step 요약을 step table에 저장 시도
+  - 실행 결과 step 요약을 `pipeline_run_steps`에 저장
+  - worker 중복 실행 방지를 위한 run 선점 처리
+  - 지원하지 않는 `execution_mode` 실패 처리
 - 현재 실행 기준:
   - `python workers/run_worker.py --once`
   - Supabase 미설정 상태에서는 안내 문구를 출력하고 종료
 
-`2026-04-02` Phase 10 검증 메모:
+`2026-04-03` Phase 10 검증 메모:
 
 - Supabase 스키마 마이그레이션 완료
   - 기준 파일: `supabase/sales_os_supabase_schema.sql`
@@ -61,6 +63,15 @@
   - 원인: worker가 builder summary를 과거 경로(`ops_validation`)에서 읽던 경로 불일치
   - 조치: `modules/validation/workflow/execution_service.py` 경로 해석을 `get_company_root(..., "ops_validation", company_key)` 기준으로 수정
   - 결과: 재실행 기준 builder 단계 `PASS` 확인
+- worker 보강 검증
+  - `tests/test_workers/test_run_executor.py`
+  - `tests/test_workers/test_status_updater.py`
+  - `python -m pytest tests/test_workers/test_run_executor.py tests/test_workers/test_status_updater.py tests/test_scripts/test_validate_full_pipeline.py -q`
+  - 결과: `5 passed`
+- 프론트 연결 착수 메모
+  - `Pipeline` 화면에서 run 접수 API 호출 연결
+  - `Run Detail` 화면에서 `pipeline_runs`, `pipeline_run_steps` polling 연결
+  - 이 부분은 `Phase 11 ~ Phase 12` 초기 연결로 보고, 공식 완료 처리에는 아직 포함하지 않음
 
 ## 1. 이 문서의 목적
 
@@ -89,15 +100,15 @@
 - `Phase 7. validation 구현`
 - `Phase 8. payload 조립 구현`
 - `Phase 9. Builder 구현`
+- `Phase 10. Worker Runtime 구현`
 
 현재 재시작 대상으로 보는 Phase:
 
-- `Phase 10. Worker Runtime 구현`
 - `Phase 11 ~ Phase 18`
 
 현재 다음 시작점:
 
-- `Phase 10. Worker Runtime 구현`
+- `Phase 11. 운영 진입 화면 연결`
 
 현재 저장소 기준 실제 상태:
 
