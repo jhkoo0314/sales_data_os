@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import Link from "next/link";
 import { FileSearch, Files, Home, MessageSquareText, PlayCircle, ScrollText } from "lucide-react";
 import { HeaderContext } from "@/components/header-context";
@@ -27,15 +27,19 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <p className="text-lg font-bold tracking-tight text-white">Sales Data OS</p>
               </div>
             </Link>
-            <nav className="hidden items-center gap-1 md:flex">
-              {navigation.map((item) => (
-                <NavLink key={item.href} href={item.href} icon={item.icon}>
-                  {item.label}
-                </NavLink>
-              ))}
-            </nav>
+            <Suspense fallback={<nav className="hidden items-center gap-1 md:flex" />}>
+              <nav className="hidden items-center gap-1 md:flex">
+                {navigation.map((item) => (
+                  <NavLink key={item.href} href={item.href} icon={item.icon}>
+                    {item.label}
+                  </NavLink>
+                ))}
+              </nav>
+            </Suspense>
           </div>
-          <HeaderContext />
+          <Suspense fallback={null}>
+            <HeaderContext />
+          </Suspense>
         </div>
       </header>
 
@@ -43,13 +47,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="pointer-events-none absolute inset-0 bg-grid z-0" />
         <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[24rem] bg-[radial-gradient(circle_at_top_right,_rgba(224,242,254,0.9),_transparent_32%)]" />
         <div className="relative z-10 mx-auto max-w-[1400px] px-8 py-10">
-          <nav className="mb-6 flex flex-wrap gap-2 md:hidden">
-            {navigation.map((item) => (
-              <NavLink key={item.href} href={item.href} icon={item.icon}>
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
+          <Suspense fallback={<nav className="mb-6 flex flex-wrap gap-2 md:hidden" />}>
+            <nav className="mb-6 flex flex-wrap gap-2 md:hidden">
+              {navigation.map((item) => (
+                <NavLink key={item.href} href={item.href} icon={item.icon}>
+                  {item.label}
+                </NavLink>
+              ))}
+            </nav>
+          </Suspense>
           {children}
         </div>
       </main>

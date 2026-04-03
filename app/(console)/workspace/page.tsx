@@ -1,339 +1,297 @@
+import Link from "next/link";
+import { Activity, ArrowRight, FileOutput, GitBranchPlus, History, Map, Upload } from "lucide-react";
+
+import { CompanySelectionRequired } from "@/components/company-selection-required";
+import { CompanyRegistryPanel } from "@/components/company-registry-panel";
+import { StatusBadge } from "@/components/status-badge";
 import {
-  Activity,
-  CloudUpload,
-  FileOutput,
-  GitBranchPlus,
-  History,
-  Map,
-  Plus,
-  Users
-} from "lucide-react";
-import { reports, runContext } from "@/lib/shared/mock-data";
+  formatAnalysisWindow,
+  getPhase11CompanySnapshot,
+  intakeLabelFromStatus,
+  intakeToneFromStatus,
+  resolveSelectedCompanyKey,
+} from "@/lib/server/console/company-context";
 
-const quickActionCards = [
-  {
-    title: "Upload Matrix",
-    description: "Ingest raw targets",
-    href: "/upload",
-    icon: CloudUpload,
-    accent: "group-hover:border-sky-300 group-hover:bg-sky-600"
-  },
-  {
-    title: "Run Pipeline",
-    description: "Process calculation batch",
-    href: "/pipeline",
-    icon: GitBranchPlus,
-    accent: "group-hover:border-violet-300 group-hover:bg-violet-600"
-  },
-  {
-    title: "Target Mapping",
-    description: "Review coverage gaps",
-    href: `/runs/${runContext.runId}`,
-    icon: Map,
-    accent: "group-hover:border-emerald-300 group-hover:bg-emerald-600"
-  },
-  {
-    title: "Reports & Output",
-    description: "Final matrix delivery",
-    href: "/reports",
-    icon: FileOutput,
-    dark: true,
-    accent: ""
+function withCompany(href: string, companyKey: string) {
+  return `${href}?company=${encodeURIComponent(companyKey)}`;
+}
+
+function formatDateTime(value: string | null | undefined) {
+  if (!value) {
+    return "기록 없음";
   }
-];
 
-const recentUploads = [
-  {
-    focus: "CRM Entities",
-    file: "master_customer_list.csv",
-    time: "Today, 09:12 AM",
-    status: "Validated",
-    statusTone: "text-emerald-600 bg-emerald-50",
-    icon: Users,
-    iconTone: "bg-indigo-50 text-indigo-600"
-  },
-  {
-    focus: "Sales Baseline",
-    file: "q1_regional_sales.xlsx",
-    time: "Today, 08:45 AM",
-    status: "Analyzing...",
-    statusTone: "text-amber-600 bg-amber-50",
-    icon: Activity,
-    iconTone: "bg-rose-50 text-rose-600"
-  },
-  {
-    focus: "Goal Matrix",
-    file: "annual_forecast_v2.csv",
-    time: "Yesterday, 04:30 PM",
-    status: "Validated",
-    statusTone: "text-emerald-600 bg-emerald-50",
-    icon: Map,
-    iconTone: "bg-teal-50 text-teal-600"
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
   }
-];
 
-export default function WorkspacePage() {
+  return new Intl.DateTimeFormat("ko-KR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+export default async function WorkspacePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ company?: string }>;
+}) {
+  const params = await searchParams;
+  const { companies, selectedCompanyKey } = await resolveSelectedCompanyKey(params.company);
+  if (!selectedCompanyKey) {
+    return (
+      <CompanySelectionRequired
+        companies={companies}
+        returnPath="/workspace"
+        title="작업할 회사를 선택해 주세요"
+        description="이 프로젝트는 회사별 company_key 문맥으로 동작합니다. 아래에서 회사를 선택하면 그 회사 기준으로 Upload, Pipeline, Reports를 계속 보게 됩니다."
+      />
+    );
+  }
+  const snapshot = await getPhase11CompanySnapshot(selectedCompanyKey);
+
+  const latestRun = snapshot.recentRuns[0] ?? null;
+  const requiredPackages = snapshot.intake?.packages.filter((item) => item.required) ?? [];
+  const readyPackages = requiredPackages.filter((item) => item.status === "ready" || item.status === "ready_with_fixes");
+  const recentUploads = snapshot.sources
+    .flatMap((source) => source.files.map((file) => ({ source, file })))
+    .sort((left, right) => right.file.updatedAt.localeCompare(left.file.updatedAt))
+    .slice(0, 6);
+
   return (
-    <div>
-      <section className="mb-8 flex items-end justify-between">
+    <div className="space-y-6">
+      <section className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <div className="eyebrow">Architecture Overview</div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Workspace Home</h1>
+          <div className="eyebrow">Phase 11 Workspace</div>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">운영 진입 화면</h1>
+          <p className="mt-2 text-sm text-slate-500">
+            현재 선택 회사는 <span className="font-mono text-slate-700">{snapshot.company.companyKey}</span> 입니다.
+            업로드 준비 상태와 최근 실행 흐름을 한 번에 확인합니다.
+          </p>
         </div>
-        <div className="flex gap-3">
-          <a
-            href="/pipeline"
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href={withCompany("/upload", snapshot.company.companyKey)}
             className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-400 hover:text-slate-900"
           >
-            <Plus className="h-[18px] w-[18px]" />
-            New Pipeline Run
-          </a>
-          <button
-            type="button"
+            <Upload className="h-[18px] w-[18px]" />
+            Upload 확인
+          </Link>
+          <Link
+            href={withCompany("/pipeline", snapshot.company.companyKey)}
             className="flex items-center gap-2 rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition-colors hover:bg-slate-800"
           >
-            <Plus className="h-[18px] w-[18px]" />
-            새 회사 등록
-          </button>
+            <GitBranchPlus className="h-[18px] w-[18px]" />
+            Pipeline 이동
+          </Link>
         </div>
       </section>
 
-      <section className="grid grid-cols-12 gap-6">
-        <div className="relative col-span-12 overflow-hidden rounded-2xl border border-slate-200 bg-white p-8 shadow-sm lg:col-span-8">
+      <section className="grid grid-cols-1 gap-6 xl:grid-cols-[1.25fr_0.75fr]">
+        <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
           <div className="pointer-events-none absolute right-[-4rem] top-[-4rem] h-64 w-64 rounded-full bg-sky-50 blur-3xl" />
-
-          <div className="relative z-10 mb-8 flex items-start justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-2xl font-bold text-white shadow-lg">
-                HYL
-              </div>
-              <div>
-                <div className="mb-1 flex items-center gap-2">
-                  <h2 className="text-2xl font-bold tracking-tight text-slate-900">Hangyeol Pharma</h2>
-                  <span className="rounded bg-sky-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-800">
-                    Enterprise Sync Active
-                  </span>
+          <div className="relative z-10">
+            <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-2xl font-bold text-white shadow-lg">
+                  {snapshot.company.companyName.slice(0, 1)}
                 </div>
-                <p className="text-sm font-medium text-slate-500">
-                  Global Node: System Architect for clinical validation
+                <div>
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <h2 className="text-2xl font-bold tracking-tight text-slate-900">
+                      {snapshot.company.companyName}
+                    </h2>
+                    <StatusBadge tone={intakeToneFromStatus(snapshot.intake?.status)}>
+                      {intakeLabelFromStatus(snapshot.intake?.status)}
+                    </StatusBadge>
+                  </div>
+                  <p className="text-sm text-slate-500">
+                    {snapshot.intake?.analysis_summary_message ??
+                      "아직 intake 결과가 없어 업로드와 입력 검토를 먼저 확인해야 합니다."}
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-right">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Common Window</p>
+                <p className="mt-1 font-mono text-sm font-bold text-slate-900">{formatAnalysisWindow(snapshot.intake)}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 border-t border-slate-100 pt-6 md:grid-cols-4">
+              <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">업로드 source</p>
+                <p className="mt-2 font-mono text-2xl font-bold text-slate-900">
+                  {snapshot.sources.filter((item) => item.exists).length}/{snapshot.sources.length}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">현재 raw 파일이 있는 source 수</p>
+              </div>
+              <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">필수 입력 준비</p>
+                <p className="mt-2 font-mono text-2xl font-bold text-slate-900">
+                  {readyPackages.length}/{requiredPackages.length}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">필수 source 기준 다음 단계 준비 수</p>
+              </div>
+              <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">최근 run</p>
+                <p className="mt-2 font-mono text-sm font-bold text-slate-900">{latestRun?.runKey ?? "없음"}</p>
+                <p className="mt-1 text-xs text-slate-500">{latestRun?.statusLabel ?? "아직 실행 전"}</p>
+              </div>
+              <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">다음 행동</p>
+                <p className="mt-2 text-sm font-bold text-slate-900">
+                  {snapshot.intake?.ready_for_adapter ? "Pipeline 실행 가능" : "Upload 검토 필요"}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {snapshot.intake?.ready_for_adapter
+                    ? "worker 대기열로 run을 접수할 수 있습니다."
+                    : "누락 항목과 검토 사유를 먼저 확인해야 합니다."}
                 </p>
               </div>
             </div>
           </div>
-
-          <div className="relative z-10 grid grid-cols-1 gap-6 border-t border-slate-100 pt-6 md:grid-cols-4">
-            <div>
-              <p className="mb-1 text-[11px] font-bold uppercase tracking-widest text-slate-400">
-                Daily Target
-              </p>
-              <p className="font-mono text-2xl font-bold text-slate-900">$1.2M</p>
-              <p className="mt-1 text-[11px] font-medium text-emerald-600">+4.2% vs prev</p>
-            </div>
-            <div>
-              <p className="mb-1 text-[11px] font-bold uppercase tracking-widest text-slate-400">
-                Territories
-              </p>
-              <p className="font-mono text-2xl font-bold text-slate-900">142</p>
-              <p className="mt-1 text-[11px] font-medium text-slate-500">9 active clusters</p>
-            </div>
-            <div>
-              <p className="mb-1 text-[11px] font-bold uppercase tracking-widest text-slate-400">
-                Sync Health
-              </p>
-              <p className="font-mono text-2xl font-bold text-slate-900">99.8%</p>
-              <p className="mt-1 text-[11px] font-medium text-emerald-600">Nominal</p>
-            </div>
-            <div>
-              <p className="mb-1 text-[11px] font-bold uppercase tracking-widest text-slate-400">
-                Active Agents
-              </p>
-              <p className="font-mono text-2xl font-bold text-slate-900">12</p>
-              <p className="mt-1 text-[11px] font-medium text-slate-500">Operational Nodes</p>
-            </div>
-          </div>
         </div>
 
-        <div className="relative col-span-12 flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl lg:col-span-4">
-          <div className="pointer-events-none absolute right-0 top-0 h-32 w-32 rounded-full bg-amber-500/10 blur-2xl" />
-          <div className="relative z-10">
-            <div className="mb-5 flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
-                Active Execution
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/20 px-2.5 py-1 text-[10px] font-bold uppercase text-amber-500">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                WARN
-              </span>
-            </div>
-            <h3 className="mb-2 font-mono text-lg text-white">{runContext.runId}</h3>
-            <p className="mb-6 text-sm font-light leading-relaxed text-slate-400">
-              Validation running for common window. Some sources indicate period mismatches.
-            </p>
-          </div>
-          <div className="relative z-10">
-            <div className="mb-2 flex justify-between text-xs font-medium text-slate-300">
-              <span>Step: Data Normalization</span>
-              <span className="font-mono text-white">85%</span>
-            </div>
-            <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
-              <div className="relative h-full w-[85%] rounded-full bg-gradient-to-r from-amber-600 to-amber-400">
-                <div className="absolute bottom-0 right-0 top-0 w-4 bg-white/50 blur-sm" />
-              </div>
-            </div>
-            <a
-              href={`/runs/${runContext.runId}`}
-              className="block w-full rounded-lg bg-white/10 py-2.5 text-center text-xs font-bold text-white transition-colors hover:bg-white/20"
-            >
-              Inspect Live Trace
-            </a>
-          </div>
-        </div>
+        <CompanyRegistryPanel
+          companies={companies}
+          returnPath="/workspace"
+          selectedCompanyKey={snapshot.company.companyKey}
+          title="회사 선택"
+        />
       </section>
 
-      <section className="col-span-12 mt-6 grid grid-cols-1 gap-4 md:grid-cols-4">
-        {quickActionCards.map((card) => {
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        {[
+          {
+            title: "Upload Matrix",
+            description: "필수 파일과 월별 업로드 현황을 확인합니다.",
+            href: withCompany("/upload", snapshot.company.companyKey),
+            icon: Upload,
+          },
+          {
+            title: "Run Pipeline",
+            description: "실행 가능 여부와 run 접수 상태를 확인합니다.",
+            href: withCompany("/pipeline", snapshot.company.companyKey),
+            icon: GitBranchPlus,
+          },
+          {
+            title: "Latest Run",
+            description: latestRun ? latestRun.explanation : "아직 run이 없어 Upload와 Pipeline 확인이 먼저입니다.",
+            href: latestRun
+              ? `/runs/${latestRun.runKey}?company=${encodeURIComponent(snapshot.company.companyKey)}`
+              : withCompany("/pipeline", snapshot.company.companyKey),
+            icon: Map,
+          },
+          {
+            title: "Reports & Output",
+            description: "최종 보고서와 산출물 확인 단계입니다.",
+            href: withCompany("/reports", snapshot.company.companyKey),
+            icon: FileOutput,
+          },
+        ].map((card) => {
           const Icon = card.icon;
-
           return (
-            <a
+            <Link
               key={card.title}
               href={card.href}
-              className={`group relative flex items-center justify-between overflow-hidden rounded-2xl border p-5 transition-all ${
-                card.dark
-                  ? "border-none bg-slate-900"
-                  : "border-slate-200 bg-white/95 backdrop-blur-[12px]"
-              }`}
+              className="group flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5 transition-all hover:border-sky-300 hover:bg-sky-50/30"
             >
-              {!card.dark ? (
-                <div className="absolute inset-0 bg-gradient-to-r from-sky-100/50 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-              ) : null}
-              <div className="relative z-10">
-                <h3 className={`text-sm font-bold ${card.dark ? "text-white" : "text-slate-900"}`}>
-                  {card.title}
-                </h3>
-                <p className={`mt-1 text-[11px] ${card.dark ? "text-slate-400" : "text-slate-500"}`}>
-                  {card.description}
-                </p>
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-slate-900">{card.title}</h3>
+                <p className="mt-1 line-clamp-2 text-[11px] text-slate-500">{card.description}</p>
               </div>
-              <div
-                className={`relative z-10 flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
-                  card.dark
-                    ? "border border-slate-700 bg-slate-800 text-white group-hover:bg-white group-hover:text-slate-900"
-                    : `bg-slate-100 text-slate-600 ${card.accent}`
-                }`}
-              >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition-colors group-hover:bg-sky-100 group-hover:text-sky-700">
                 <Icon className="h-[18px] w-[18px]" />
               </div>
-            </a>
+            </Link>
           );
         })}
       </section>
 
-      <section className="mt-6 grid grid-cols-12 gap-6">
-        <div className="col-span-12 flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-7">
+      <section className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_0.8fr]">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 p-6">
             <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
               <History className="h-[18px] w-[18px] text-slate-400" />
-              Recent Data Ingests
+              최근 업로드 파일
             </h3>
-            <a href="/upload" className="text-xs font-semibold text-sky-600 hover:underline">
-              View File Explorer
-            </a>
+            <Link href={withCompany("/upload", snapshot.company.companyKey)} className="text-xs font-semibold text-sky-600 hover:underline">
+              Upload 자세히 보기
+            </Link>
           </div>
-
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-slate-50/50">
                 <tr>
-                  <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                    Dataset Focus
-                  </th>
-                  <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                    Source File
-                  </th>
-                  <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                    Status
-                  </th>
+                  <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Source</th>
+                  <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">파일</th>
+                  <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">업로드 시각</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {recentUploads.map((item) => {
-                  const Icon = item.icon;
-
-                  return (
-                    <tr key={item.file} className="group cursor-pointer transition-colors hover:bg-slate-50">
+                {recentUploads.length > 0 ? (
+                  recentUploads.map(({ source, file }) => (
+                    <tr key={file.relativePath} className="hover:bg-slate-50">
+                      <td className="px-6 py-4 text-sm font-bold text-slate-900">{source.label}</td>
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`flex h-8 w-8 items-center justify-center rounded-lg ${item.iconTone}`}
-                          >
-                            <Icon className="h-4 w-4" />
-                          </div>
-                          <span className="text-sm font-bold text-slate-900 transition-colors group-hover:text-sky-600">
-                            {item.focus}
-                          </span>
-                        </div>
+                        <div className="font-mono text-[12px] text-slate-600">{file.name}</div>
+                        <div className="mt-1 text-[10px] text-slate-400">{source.sourceKey}</div>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="font-mono text-[12px] text-slate-600">{item.file}</div>
-                        <div className="mt-1 text-[10px] text-slate-400">{item.time}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center gap-1.5 rounded px-2 py-1 text-[11px] font-bold ${item.statusTone}`}>
-                          <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                          {item.status}
-                        </span>
-                      </td>
+                      <td className="px-6 py-4 text-[12px] text-slate-500">{formatDateTime(file.updatedAt)}</td>
                     </tr>
-                  );
-                })}
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={3} className="px-6 py-6 text-sm text-slate-500">
+                      아직 업로드된 파일이 없습니다. 먼저 Upload 화면에서 source 파일을 올려야 합니다.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
         </div>
 
-        <div className="relative col-span-12 overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-5">
-          <div className="pointer-events-none absolute right-0 top-0 h-32 w-32 rounded-full bg-slate-50 blur-3xl" />
-          <div className="relative z-10 mb-6 flex items-center justify-between">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
             <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
               <Activity className="h-[18px] w-[18px] text-slate-400" />
-              Operational Intelligence
+              운영 해석
             </h3>
+            {latestRun ? <StatusBadge tone={latestRun.tone}>{latestRun.statusLabel}</StatusBadge> : null}
           </div>
 
-          <div className="relative z-10 space-y-4">
-            {reports.slice(0, 2).map((report, index) => (
-              <a
-                key={report.name}
-                href="/reports"
-                className="group flex items-start gap-4 rounded-xl border border-slate-100 p-4 transition-colors hover:border-sky-200 hover:bg-sky-50/30"
-              >
-                <div
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border ${
-                    index === 0
-                      ? "border-sky-100 bg-sky-50 text-sky-600"
-                      : "border-amber-100 bg-amber-50 text-amber-600"
-                  }`}
-                >
-                  {index === 0 ? <FileOutput className="h-[18px] w-[18px]" /> : <Map className="h-[18px] w-[18px]" />}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h4 className="truncate text-sm font-bold text-slate-900 transition-colors group-hover:text-sky-700">
-                    {report.name}
-                  </h4>
-                  <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">{report.summary}</p>
-                  <div className="mt-3 flex items-center justify-between">
-                    <div className="flex -space-x-2">
-                      <div className="h-6 w-6 rounded-full border-2 border-white bg-slate-200" />
-                      <div className="h-6 w-6 rounded-full border-2 border-white bg-slate-300" />
-                    </div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      {index === 0 ? "24H AGO" : "2D AGO"}
-                    </span>
-                  </div>
-                </div>
-              </a>
-            ))}
+          <div className="space-y-4">
+            <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Intake Summary</p>
+              <p className="mt-2 text-sm font-medium leading-relaxed text-slate-700">
+                {snapshot.intake?.analysis_summary_message ??
+                  "아직 intake 결과가 저장되지 않았습니다. 업로드 후 입력 검토를 먼저 실행해야 합니다."}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-slate-100 bg-white p-4">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">실행 판단</p>
+              <p className="mt-2 text-sm font-bold text-slate-900">
+                {snapshot.intake?.ready_for_adapter
+                  ? "필수 입력이 준비되어 Pipeline으로 넘어갈 수 있습니다."
+                  : "검토가 필요한 입력이 있어 바로 실행하면 안 됩니다."}
+              </p>
+              <p className="mt-2 text-xs leading-5 text-slate-500">
+                {snapshot.intake?.findings[0] ??
+                  latestRun?.explanation ??
+                  "현재 회사의 가장 먼저 볼 항목은 Upload 상태와 공통 분석 구간입니다."}
+              </p>
+            </div>
+
+            <Link
+              href={withCompany(snapshot.intake?.ready_for_adapter ? "/pipeline" : "/upload", snapshot.company.companyKey)}
+              className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-900 px-4 py-4 text-sm font-bold text-white transition-colors hover:bg-slate-800"
+            >
+              <span>{snapshot.intake?.ready_for_adapter ? "Pipeline으로 이동" : "Upload 검토로 이동"}</span>
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
         </div>
       </section>

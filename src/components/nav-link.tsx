@@ -2,7 +2,7 @@
 
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 export function NavLink({
   href,
@@ -14,11 +14,14 @@ export function NavLink({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const isActive = pathname === href;
+  const companyKey = searchParams.get("company")?.trim();
+  const targetHref = companyKey ? `${href}?company=${encodeURIComponent(companyKey)}` : href;
 
   return (
     <Link
-      href={href}
+      href={targetHref}
       className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
         isActive
           ? "bg-slate-800 font-bold text-white"

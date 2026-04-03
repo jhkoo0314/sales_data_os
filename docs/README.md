@@ -1,95 +1,106 @@
-# Sales Data OS Web Rebuild
+# Sales Data OS Docs
 
-작성일: 2026-03-30  
-상태: `active`
+이 폴더는 현재 `Sales Data OS Web`의 설계 기준과 운영 문서를 모아둔 곳입니다.
 
-## 목적
+지금 기준으로는
+`초기 설계 문서 보관소`
+라기보다
+`현재 구현 상태를 읽고 다음 작업을 이어가기 위한 문서 세트`
+에 가깝습니다.
 
-이 폴더는 기존 Streamlit 운영 콘솔을
-`Next.js + React + Tailwind` 기반 웹 앱으로 전환하기 위한
-설계 및 구현 기준 문서 작업 공간이다.
+## 지금 먼저 볼 문서
 
-핵심 방향은 아래와 같다.
+1. [current_implementation_status.md](C:\sales_os\docs\current_implementation_status.md)
+2. [task.md](C:\sales_os\docs\task.md)
+3. [operations_runbook.md](C:\sales_os\docs\operations_runbook.md)
 
-- 계산은 계속 Python이 맡는다.
-- 웹은 입력, 실행, 상태조회, 결과확인, 보고서열람을 맡는다.
-- 시스템 전체 이름은 항상 `Sales Data OS`로 유지한다.
-- `validation`만 공식 용어로 사용한다.
-- 기본 화면 뼈대는 먼저 구현했고, 이제 우선순위는 백엔드 엔진 설계다.
+쉽게 말하면:
 
-즉 이 작업은
-`계산 엔진 교체`가 아니라
-`프론트엔드와 웹 운영 경험 재구성 + 엔진 흐름 재정렬`
-이다.
+- `current_implementation_status.md`
+  - 지금 무엇이 구현됐는지
+- `task.md`
+  - Phase가 어디까지 끝났는지
+- `operations_runbook.md`
+  - 실제 운영 중 무엇을 먼저 확인해야 하는지
 
-## 문서 읽기 순서
+## 현재 공식 상태
 
-1. `docs/01_prd.md`
-2. `docs/02_user_flow.md`
-3. `docs/03_information_architecture.md`
-4. `docs/04_tech_stack.md`
-5. `docs/05_frontend_architecture.md`
-6. `docs/06_backend_api_plan.md`
-7. `docs/07_data_flow.md`
-8. `docs/08_design_system.md`
-9. `docs/09_delivery_roadmap.md`
-10. `docs/10_open_questions.md`
-11. `docs/12_report_template_dependencies.md`
-12. `docs/13_backend_logic_request_prompt.md`
+완료:
 
-## 한 줄 정의
+- `Phase 1 ~ Phase 15`
+- `Phase 17`
+- `Phase 18`
 
-`Python 기반 Sales Data OS 계산 엔진은 유지하고, 운영 화면은 제품 수준의 웹 앱으로 다시 만들며, 현재 우선순위는 백엔드 엔진 설계다.`
+다음 시작점:
 
-## 작업 원칙
+- `Phase 16. 보조 기능 확장`
 
-- KPI 계산 단일 소스는 계속 `modules/kpi/*`
-- Builder는 render-only 유지
-- 웹은 계산 로직을 중복 구현하지 않음
-- 모든 실행/저장 기준은 `company_key`
-- 장기 실행은 run 중심으로 추적
-- 공식 백엔드 흐름은 `입력 -> 검증 -> 정규화 -> KPI 계산 -> validation -> result asset / payload -> builder`
-- 공식 모듈 구조는 `intake / kpi / crm / sandbox / territory / prescription / validation / radar / builder` 총 9개
-- 겉으로 드러나는 운영/결과 모듈은 `crm / sandbox / prescription / territory / radar` 총 5개
-- `intake / kpi / validation / builder`는 내부 엔진 모듈로 본다
+## 현재 제품 해석
 
-## 이 폴더를 어떻게 사용할지
+현재 웹 앱은 아래 흐름까지 연결된 상태입니다.
 
-이 폴더는 설계 문서만 두는 임시 폴더가 아니라,
-현재 루트에서 바로 웹 구현과 백엔드 설계를 진행하기 위한 기준 문서 폴더다.
+1. 회사 등록
+   - 회사 이름만 입력
+   - 서버가 랜덤 `6자리 숫자` `company_key` 생성
+2. 회사 선택
+   - 기본 회사 자동 선택 없음
+   - 항상 `company_key` 문맥으로 진입
+3. Upload
+   - source 상태 / intake 결과 확인
+4. Pipeline
+   - run 접수 / 상태 polling
+5. Run Detail
+   - 단계 / validation / RADAR / 다음 행동
+6. Reports / Artifacts
+   - 실제 결과 파일 열람
+7. Agent
+   - 현재 run 기준 Gemini 해석
+8. 운영 안정화
+   - 공통 로딩/오류
+   - 로그 키
+   - 운영 런북
+   - 기본 API 테스트
 
-의도는 아래와 같다.
+## 이 폴더 문서 분류
 
-1. 여기서 웹 프로젝트 기준 문서를 충분히 상세하게 고정한다.
-2. 같은 루트에서 `pnpm` 기반 웹 프로젝트를 시작한다.
-3. 기본 화면 위에서 백엔드 엔진 흐름을 설계한다.
-4. Supabase, Python worker, Builder payload를 문서 기준으로 맞춘다.
+핵심 진행 문서:
 
-즉 이 폴더는
-`현재 루트 기준 설계 + 구현 기준 패키지`
-역할을 한다.
+- [current_implementation_status.md](C:\sales_os\docs\current_implementation_status.md)
+- [task.md](C:\sales_os\docs\task.md)
+- [operations_runbook.md](C:\sales_os\docs\operations_runbook.md)
 
-## 현재 기준으로 알 수 있는 것
+설계 문서:
 
-- 이 웹 제품이 왜 필요한지
-- 누가 어떤 흐름으로 쓰는지
-- 어떤 화면이 필요한지
-- 어떤 기술로 만들지
-- Supabase, Python worker, 웹이 어떻게 역할을 나누는지
-- 기본 화면 뼈대가 어디까지 구현됐는지
-- 어떤 순서로 백엔드 엔진을 설계해야 하는지
+- [01_prd.md](C:\sales_os\docs\01_prd.md)
+- [02_user_flow.md](C:\sales_os\docs\02_user_flow.md)
+- [03_information_architecture.md](C:\sales_os\docs\03_information_architecture.md)
+- [04_tech_stack.md](C:\sales_os\docs\04_tech_stack.md)
+- [05_frontend_architecture.md](C:\sales_os\docs\05_frontend_architecture.md)
+- [06_backend_api_plan.md](C:\sales_os\docs\06_backend_api_plan.md)
+- [07_data_flow.md](C:\sales_os\docs\07_data_flow.md)
+- [08_design_system.md](C:\sales_os\docs\08_design_system.md)
 
-## 현재 기준으로 우선해서 하는 것
+구현 참고 문서:
 
-- 기본 화면 뼈대 유지 및 디자인 반영
-- input intake / pre-validation / normalization 설계
-- KPI / validation / payload / builder 계약 정리
-- Python worker와 템플릿 의존성 기준 정리
+- [11_antigravity_html_design_brief.md](C:\sales_os\docs\11_antigravity_html_design_brief.md)
+- [12_report_template_dependencies.md](C:\sales_os\docs\12_report_template_dependencies.md)
+- [13_backend_logic_request_prompt.md](C:\sales_os\docs\13_backend_logic_request_prompt.md)
+- [backend_architecture](C:\sales_os\docs\backend_architecture)
+- [summary](C:\sales_os\docs\summary)
 
-## 현재 기준으로 아직 안 끝난 것
+디자인 예시:
 
-- Supabase 실제 테이블 구현
-- Python worker 실제 구현
-- Builder payload 실제 구현
-- intake / validation / normalization 실제 연결
-- KPI 엔진과 웹/worker 간 실제 계약 연결
+- [ui/design_guide](C:\sales_os\docs\ui\design_guide)
+
+## 문서 운영 원칙
+
+- 현재 구현 진행사항은 `current_implementation_status.md`에만 누적
+- Phase 체크는 `task.md` 기준
+- 실제 운영 확인 순서는 `operations_runbook.md` 기준
+
+## 현재 기준으로 중요한 원칙
+
+- 웹은 계산하지 않음
+- Python 결과를 읽어서 설명함
+- `company_key`, `run_id` 문맥을 잃지 않음
+- 상태는 색만이 아니라 설명 문장으로 보여줌

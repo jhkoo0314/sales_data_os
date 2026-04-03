@@ -1,245 +1,220 @@
-import { Download, ExternalLink } from "lucide-react";
+import Link from "next/link";
+import { Activity, Download, ExternalLink, FileOutput, ShieldAlert, Zap } from "lucide-react";
 
-const reportCards = [
-  {
-    title: "Total Validation Report",
-    summary:
-      "Total validation summary for final decision review, encompassing schema checks and business logic constraints.",
-    keyValue: "VAL_TOTAL_RUN_01",
-    time: "Mar 30, 2026, 14:45 KST",
-    status: "Generated",
-    tone: "success"
-  },
-  {
-    title: "Territory Report",
-    summary:
-      "Territory coverage and assignment review. 1.5% of clinic IDs remain unmapped and fell back to Unknown Region.",
-    keyValue: "TERR_COV_02",
-    time: "Mar 30, 2026, 14:41 KST",
-    status: "Available w/ Warning",
-    tone: "warn"
-  },
-  {
-    title: "Prescription Report",
-    summary:
-      "Prescription consistency and trend analysis based on unified baseline models across 4 active regions.",
-    keyValue: "RX_TREND_09",
-    time: "Mar 30, 2026, 14:43 KST",
-    status: "Generated",
-    tone: "success"
-  },
-  {
-    title: "CRM Report",
-    summary:
-      "CRM performance and validation overview. Underlying run has been superceded by a newer execution.",
-    keyValue: "CRM_PERF_OLD",
-    time: "Mar 29, 2026, 09:12 KST",
-    status: "Stale",
-    tone: "stale"
-  },
-  {
-    title: "Sandbox Report",
-    summary:
-      "Review of experimental data transformations. Report building crashed due to unhandled schema exception.",
-    keyValue: "SBX_NULL",
-    time: "--",
-    status: "Failed",
-    tone: "fail"
-  },
-  {
-    title: "RADAR Report",
-    summary:
-      "Advanced outlier detection and anomaly clustering. Skipped because Unified Release mode bypasses RADAR.",
-    keyValue: "--",
-    time: "--",
-    status: "Not Generated",
-    tone: "disabled"
+import { CompanySelectionRequired } from "@/components/company-selection-required";
+import { StatusBadge } from "@/components/status-badge";
+import { resolveSelectedCompanyKey } from "@/lib/server/console/company-context";
+import { getResultBrowserContext } from "@/lib/server/console/result-browser";
+
+function withCompany(href: string, companyKey: string) {
+  return `${href}?company=${encodeURIComponent(companyKey)}`;
+}
+
+export default async function ReportsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ company?: string }>;
+}) {
+  const params = await searchParams;
+  const { companies, selectedCompanyKey } = await resolveSelectedCompanyKey(params.company);
+  if (!selectedCompanyKey) {
+    return <CompanySelectionRequired companies={companies} returnPath="/reports" />;
   }
-];
+  const context = await getResultBrowserContext(selectedCompanyKey);
 
-export default function ReportsPage() {
   return (
-    <div>
-      <section className="relative mb-8 flex flex-wrap items-start justify-between gap-8 overflow-hidden rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="space-y-8">
+      <section className="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="absolute bottom-0 right-0 top-0 z-0 flex w-64 items-center justify-center border-l border-slate-100 bg-slate-50 p-6 text-center">
           <span className="rotate-12 text-8xl text-slate-200">◫</span>
         </div>
-        <div className="relative z-10 flex grow flex-wrap items-center gap-12">
+        <div className="relative z-10 flex flex-wrap items-center gap-10">
           <div>
-            <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-              Target Workspace
-            </p>
-            <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">
-              Hangyeol Pharma
-            </h2>
-            <p className="mt-1 font-mono text-[11px] text-slate-500">KEY: HG_RX_PROD_01</p>
+            <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Target Workspace</p>
+            <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">{context.companyName}</h2>
+            <p className="mt-1 font-mono text-[11px] text-slate-500">{selectedCompanyKey}</p>
           </div>
           <div className="h-10 w-px bg-slate-200" />
           <div>
-            <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-              Selected Run <span className="text-[12px]">⌄</span>
-            </p>
-            <h3 className="font-mono text-xl font-bold text-sky-600">RUN-20260330-01</h3>
-            <p className="mt-1 flex items-center gap-1 text-[11px] text-slate-500">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              <span className="font-bold text-emerald-600">CLEARED</span>
-            </p>
+            <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Latest Run</p>
+            <h3 className="font-mono text-xl font-bold text-sky-600">{context.latestRunKey ?? "run 없음"}</h3>
+            <p className="mt-1 text-[11px] text-slate-500">{context.latestRunStatus ?? "실행 기록 없음"}</p>
           </div>
           <div className="h-10 w-px bg-slate-200" />
           <div>
-            <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-              Execution Mode
-            </p>
-            <p className="text-[14px] font-bold text-slate-800">Unified Release</p>
-            <p className="mt-1 text-[11px] text-slate-500">Prod DB Append</p>
+            <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Reports</p>
+            <p className="text-[14px] font-bold text-slate-800">{context.reports.length}개 준비됨</p>
+            <p className="mt-1 text-[11px] text-slate-500">builder preview 기준</p>
           </div>
         </div>
       </section>
 
-      <section className="mb-8">
-        <h1 className="mb-2 text-3xl font-extrabold tracking-tight text-slate-900">
-          Final Deliverable Reports
-        </h1>
+      <section>
+        <h1 className="mb-2 text-3xl font-extrabold tracking-tight text-slate-900">Final Deliverable Reports</h1>
         <p className="max-w-4xl border-l-2 border-sky-500 pl-3 text-sm font-medium text-slate-500">
-          This directory contains human-facing, high-level business intelligence reports and final
-          summaries.
-          <br />
-          <b className="text-slate-700">These are not internal pipeline artifacts.</b>
+          이 화면은 실제 builder 결과를 바탕으로, 사람이 바로 열어볼 수 있는 보고서만 모아 보여줍니다.
         </p>
       </section>
 
-      <section className="mb-6 flex items-center justify-between border-b border-slate-200 pb-6">
-        <div className="flex items-center gap-4">
-          <select className="rounded-lg border border-slate-300 bg-white p-2 text-sm font-medium text-slate-700 shadow-sm">
-            <option>All Report Types</option>
-          </select>
-          <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">
-            <input type="checkbox" className="rounded text-sky-600" defaultChecked />
-            <span>Generated Only</span>
-          </label>
+      <section className="grid grid-cols-1 gap-6 xl:grid-cols-[0.8fr_1.2fr]">
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-4">
+            <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900">
+              <Activity className="h-[18px] w-[18px] text-slate-400" />
+              RADAR Priority
+            </h2>
+            {context.radar.status ? <StatusBadge tone={context.radar.tone}>{context.radar.status}</StatusBadge> : null}
+          </div>
+
+          <div className="space-y-4">
+            <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-slate-900">
+                {context.radar.topIssue ?? "가장 먼저 볼 신호가 아직 없습니다."}
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">{context.radar.summaryText}</p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-slate-100 p-4">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Signals</p>
+                <p className="mt-1 text-2xl font-extrabold text-slate-900">{context.radar.signalCount}</p>
+              </div>
+              <div className="rounded-xl border border-slate-100 p-4">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Run</p>
+                <p className="mt-1 font-mono text-sm font-bold text-slate-900">{context.radar.runId ?? "-"}</p>
+              </div>
+              <div className="rounded-xl border border-slate-100 p-4">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Period</p>
+                <p className="mt-1 font-mono text-sm font-bold text-slate-900">{context.radar.periodValue ?? "-"}</p>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="inline-flex rounded-lg bg-slate-100 p-1">
-          <button className="rounded border border-slate-200 bg-white px-4 py-1.5 text-sm font-bold text-slate-800 shadow-sm">
-            Current Run Only
-          </button>
-          <button className="px-4 py-1.5 text-sm font-bold text-slate-500 hover:text-slate-800">
-            Latest Reports
-          </button>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-4">
+            <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900">
+              <Zap className="h-[18px] w-[18px] text-slate-400" />
+              What To Check First
+            </h2>
+          </div>
+
+          {context.radar.signals.length > 0 ? (
+            <div className="space-y-4">
+              {context.radar.signals.slice(0, 2).map((signal) => (
+                <div key={signal.signalId} className="rounded-xl border border-slate-100 p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <StatusBadge tone={signal.tone}>{signal.severity}</StatusBadge>
+                    <span className="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-600">
+                      {signal.priorityLabel}
+                    </span>
+                    {signal.priorityScore !== null ? (
+                      <span className="font-mono text-[11px] text-slate-500">Priority {signal.priorityScore}</span>
+                    ) : null}
+                  </div>
+                  <h3 className="mt-3 text-sm font-bold text-slate-900">{signal.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-600">{signal.message}</p>
+
+                  {signal.decisionOptions.length > 0 ? (
+                    <div className="mt-3 space-y-2">
+                      {signal.decisionOptions.map((option) => (
+                        <div key={`${signal.signalId}-${option.code}`} className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                          <p className="text-xs font-bold text-slate-900">
+                            {option.code}. {option.label}
+                          </p>
+                          <p className="mt-1 text-xs leading-relaxed text-slate-600">{option.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-600">
+              아직 보여줄 RADAR 신호가 없습니다. 이 경우 억지 요약을 만들지 않고 빈 상태로 둡니다.
+            </div>
+          )}
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {reportCards.map((card) => {
-          const tones =
-            card.tone === "success"
-              ? {
-                  card: "border-slate-200 bg-white hover:border-sky-300 hover:shadow-md",
-                  icon: "border-emerald-100 bg-emerald-50 text-emerald-600",
-                  badge: "border-emerald-200 bg-emerald-50 text-emerald-700",
-                  footer: "bg-slate-50 border-slate-100"
-                }
-              : card.tone === "warn"
-                ? {
-                    card: "border-slate-200 bg-white hover:border-amber-300 hover:shadow-md",
-                    icon: "border-amber-100 bg-amber-50 text-amber-600",
-                    badge: "border-amber-200 bg-amber-50 text-amber-700",
-                    footer: "bg-amber-50/30 border-slate-100"
-                  }
-                : card.tone === "stale"
-                  ? {
-                      card: "border-slate-200 bg-slate-50 opacity-80",
-                      icon: "border-slate-300 bg-slate-200 text-slate-500",
-                      badge: "border-slate-300 bg-slate-100 text-slate-600",
-                      footer: "bg-slate-100 border-slate-200"
-                    }
-                  : card.tone === "fail"
-                    ? {
-                        card: "border-rose-200 bg-rose-50/30 hover:border-rose-300 hover:shadow-md",
-                        icon: "border-rose-200 bg-rose-100 text-rose-600",
-                        badge: "border-rose-300 bg-rose-100 text-rose-700",
-                        footer: "bg-rose-50 border-rose-100"
-                      }
-                    : {
-                        card: "border-dashed border-slate-200 bg-slate-50/50",
-                        icon: "border-slate-200 bg-slate-100 text-slate-400",
-                        badge: "border-slate-200 bg-white text-slate-500",
-                        footer: "bg-transparent border-transparent"
-                      };
+      {context.radar.scopeHighlights.length > 0 ? (
+        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center gap-2 border-b border-slate-100 pb-4">
+            <ShieldAlert className="h-[18px] w-[18px] text-slate-400" />
+            <h2 className="text-sm font-bold text-slate-900">RADAR Scope Highlights</h2>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            {context.radar.scopeHighlights.map((item) => (
+              <div key={item.label} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{item.label}</p>
+                <p className="mt-2 text-sm font-semibold text-slate-800">{item.summary}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
-          return (
+      <section className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {context.reports.length > 0 ? (
+          context.reports.map((report) => (
             <div
-              key={card.title}
-              className={`group flex h-full flex-col overflow-hidden rounded-xl border shadow-sm transition-all ${tones.card}`}
+              key={report.key}
+              className="group flex h-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all hover:border-sky-300 hover:shadow-md"
             >
               <div className="flex-1 border-b border-slate-100 p-6">
-                <div className="mb-4 flex items-start justify-between">
-                  <div className={`flex h-10 w-10 items-center justify-center rounded-lg border ${tones.icon}`}>
-                    <span className="text-[18px]">{card.tone === "fail" ? "!" : card.tone === "disabled" ? "◌" : "▣"}</span>
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-sky-100 bg-sky-50 text-sky-600">
+                    <FileOutput className="h-5 w-5" />
                   </div>
-                  <div className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 shadow-sm ${tones.badge}`}>
-                    <span className="h-2 w-2 rounded-full bg-current" />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">{card.status}</span>
-                  </div>
+                  <StatusBadge tone={report.tone}>{report.status}</StatusBadge>
                 </div>
                 <h4 className="mb-2 text-lg font-extrabold text-slate-900 transition-colors group-hover:text-sky-600">
-                  {card.title}
+                  {report.title}
                 </h4>
-                <p className="mb-4 text-sm leading-relaxed text-slate-500">{card.summary}</p>
+                <p className="mb-4 text-sm leading-relaxed text-slate-500">{report.summary}</p>
                 <div className="flex flex-col gap-1 text-[11px] text-slate-500">
                   <p>
-                    <span className="font-semibold uppercase tracking-wider text-slate-700">KEY:</span>{" "}
-                    {card.keyValue}
+                    <span className="font-semibold uppercase tracking-wider text-slate-700">FILE:</span> {report.fileName}
                   </p>
                   <p>
-                    <span className="font-semibold uppercase tracking-wider text-slate-700">TIME:</span>{" "}
-                    {card.time}
+                    <span className="font-semibold uppercase tracking-wider text-slate-700">UPDATED:</span> {report.updatedAt}
                   </p>
                 </div>
               </div>
-              <div className={`flex gap-3 border-t p-4 ${tones.footer}`}>
-                {card.tone === "disabled" ? (
-                  <button
-                    type="button"
-                    disabled
-                    className="flex-1 cursor-not-allowed rounded-lg bg-slate-100 py-2 text-sm font-bold text-slate-400"
-                  >
-                    Unavailable
-                  </button>
-                ) : card.tone === "fail" ? (
-                  <button
-                    type="button"
-                    className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-rose-200 bg-white py-2 text-sm font-bold text-rose-700 shadow-sm hover:bg-rose-50"
-                  >
-                    View Error Log
-                  </button>
-                ) : card.tone === "stale" ? (
-                  <button
-                    type="button"
-                    className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white py-2 text-sm font-bold text-slate-600 shadow-sm hover:bg-slate-50"
-                  >
-                    View Old Report
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white py-2 text-sm font-bold text-slate-800 shadow-sm hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700"
-                    >
-                      <ExternalLink className="h-[18px] w-[18px]" />
-                      {card.tone === "warn" ? "Open & Review" : "Open"}
-                    </button>
-                    <button
-                      type="button"
-                      className="flex w-12 items-center justify-center rounded-lg border border-slate-200 bg-white py-2 text-slate-600 shadow-sm hover:bg-slate-100"
-                    >
-                      <Download className="h-[18px] w-[18px]" />
-                    </button>
-                  </>
-                )}
+              <div className="flex gap-3 border-t border-slate-100 bg-slate-50 p-4">
+                <a
+                  href={`/api/companies/${encodeURIComponent(selectedCompanyKey)}/files?path=${encodeURIComponent(report.relativePath)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white py-2 text-sm font-bold text-slate-800 shadow-sm hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700"
+                >
+                  <ExternalLink className="h-[18px] w-[18px]" />
+                  Open
+                </a>
+                <a
+                  href={`/api/companies/${encodeURIComponent(selectedCompanyKey)}/files?path=${encodeURIComponent(report.relativePath)}&download=1`}
+                  className="flex w-12 items-center justify-center rounded-lg border border-slate-200 bg-white py-2 text-slate-600 shadow-sm hover:bg-slate-100"
+                >
+                  <Download className="h-[18px] w-[18px]" />
+                </a>
               </div>
             </div>
-          );
-        })}
+          ))
+        ) : (
+          <div className="col-span-full rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
+            아직 builder 보고서가 없습니다. 먼저 Pipeline 실행과 Builder 완료 여부를 확인해 주세요.
+          </div>
+        )}
+      </section>
+
+      <section className="flex justify-end">
+        <Link
+          href={withCompany("/artifacts", selectedCompanyKey)}
+          className="rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-400 hover:text-slate-900"
+        >
+          Artifacts로 이동
+        </Link>
       </section>
     </div>
   );

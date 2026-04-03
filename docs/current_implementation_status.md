@@ -9,9 +9,11 @@
 이 문단은 긴 이력 본문보다 우선하는 최신 기준이다.
 
 - 공식 완료 단계:
-  - `Phase 1 ~ Phase 10`
+  - `Phase 1 ~ Phase 15`
+  - `Phase 17`
+  - `Phase 18`
 - 현재 다음 시작점:
-  - `Phase 11. 운영 진입 화면 연결`
+  - `Phase 16. 보조 기능 확장`
 - 공식 산출 경로:
   - `data/standard/{company_key}/...`
   - `data/validation/{company_key}/...`
@@ -73,6 +75,62 @@
   - `Run Detail` 화면에서 `pipeline_runs`, `pipeline_run_steps` polling 연결
   - 이 부분은 `Phase 11 ~ Phase 12` 초기 연결로 보고, 공식 완료 처리에는 아직 포함하지 않음
 
+`2026-04-03` Phase 11 ~ Phase 13 완료 메모:
+
+- `Phase 11. 운영 진입 화면 연결` 완료
+  - `Workspace`, `Upload`, `Pipeline`이 mock이 아니라 실제 회사 / 업로드 / intake / run 데이터 기준으로 동작
+  - 회사 선택 문맥이 URL `company` 기준으로 유지되도록 정리
+  - `Pipeline`은 intake 준비 상태가 부족하면 실행 버튼을 막고 이유를 설명하도록 연결
+- `Phase 12. 실행 추적과 결과 해석 화면 연결` 완료
+  - `Run Detail`에서 `pipeline_runs`, `pipeline_run_steps` polling 유지
+  - Python 결과 파일인 `pipeline_validation_summary.json`, 모듈별 `*_validation_summary.json`, `builder_validation_summary.json`을 읽어
+    모듈 판정, 근거 수치, builder 결과, 다음 행동 문장을 실제 데이터로 표시
+  - 중요: 이 단계에서 TypeScript는 새 계산을 하지 않고 이미 저장된 결과만 읽음
+- `Phase 13. 결과물 탐색 화면 연결` 완료
+  - `Reports`가 실제 builder preview HTML 결과를 읽어 카드와 열기/다운로드 링크로 연결
+  - `Artifacts`가 실제 validation / result asset / builder 결과 파일을 상위 목록 기준으로 표시
+  - `/api/companies/{companyKey}/files` 라우트를 추가해 허용된 회사 경로 안에서만 파일 열기/다운로드 가능하게 정리
+- `Phase 14. 데이터 연결 정리` 진행 메모
+  - `/api/companies`
+  - `/api/companies/{companyKey}/overview`
+  - 회사 목록과 회사별 운영 요약을 공통 데이터 계약으로 정리 시작
+  - 이후 화면이 같은 overview 계약을 보도록 정리하는 단계로 진입
+- `Phase 15. RADAR 구현` 완료 메모
+  - `src/lib/server/console/radar-context.ts`를 추가해 `data/validation/{company_key}/radar/radar_result_asset.json`을 읽는 전용 레이어를 만들었다
+  - 중요: TypeScript는 RADAR 점수를 새로 계산하지 않고, 이미 저장된 신호/우선순위/선택지만 화면용으로 정리한다
+  - `Run Detail`에 RADAR Priority 섹션을 추가해
+    - 가장 먼저 볼 신호
+    - 우선순위 점수
+    - 근거 값
+    - 가능한 대응 선택지
+    를 한 번에 읽을 수 있게 했다
+  - `Reports`에 RADAR 요약 블록을 추가해
+    - 현재 회사 기준 최우선 이슈
+    - 신호 개수
+    - run / period 문맥
+    - 지점/담당자 기준 하이라이트
+    를 함께 보여주게 했다
+- `Phase 17. Agent 구현` 완료 메모
+  - `Agent` 화면을 예시 mock에서 실제 운영 해석 도구로 교체했다
+  - `src/lib/server/console/agent-context.ts`에서
+    - 현재 `company_key`
+    - 선택 `run_id` 역할의 `runKey`
+    - validation 요약
+    - RADAR 요약
+    - report / artifact 링크
+    를 한 번에 묶는 읽기 전용 문맥 레이어를 만들었다
+  - `app/api/companies/{companyKey}/agent` 라우트를 추가해 Gemini 기반 답변을 생성하게 했다
+  - 중요: Agent는 계산을 하지 않고, 현재 저장된 결과만 Gemini에 전달해 해석하게 한다
+  - 기본 모델은 현재 공식 문서 기준 `gemini-3.1-flash-lite-preview`로 잡았고, 환경변수 `GEMINI_MODEL`로 바꿀 수 있게 했다
+  - 답변 형식은
+    - 핵심 요약
+    - 근거 링크
+    - 다음 행동
+    - 한계
+    로 고정해 일반 채팅창처럼 새지 않게 제한했다
+  - `POST /api/companies`는 이제 회사 등록 시 `company_key`를 사용자가 직접 받지 않고,
+    서버가 랜덤 `6자리 숫자`로 생성하도록 바뀌었다
+
 ## 1. 이 문서의 목적
 
 이 문서는 지금까지 무엇을 구현했는지,
@@ -101,14 +159,38 @@
 - `Phase 8. payload 조립 구현`
 - `Phase 9. Builder 구현`
 - `Phase 10. Worker Runtime 구현`
+- `Phase 11. 운영 진입 화면 연결`
+- `Phase 12. 실행 추적과 결과 해석 화면 연결`
+- `Phase 13. 결과물 탐색 화면 연결`
+- `Phase 14. 데이터 연결 정리`
+- `Phase 15. RADAR 구현`
+- `Phase 17. Agent 구현`
+- `Phase 18. 운영 안정화`
+ 
+`2026-04-03` Phase 18 진행 메모:
+
+- 공통 로딩/에러 화면 추가
+  - `app/(console)/loading.tsx`
+  - `app/(console)/error.tsx`
+  - 운영 화면 전반에서 첫 진입 로딩과 서버 오류를 같은 문장 규칙으로 보여주게 정리
+- 운영 로그 키 정리
+  - `src/lib/server/shared/ops-log.ts`
+  - 회사 목록, 회사 등록, run 목록, run 생성, 파일 열기, Agent 응답에 공통 이벤트 키를 붙였다
+- 테스트 보강
+  - `app/api/companies/route.test.ts`
+  - `app/api/companies/[companyKey]/files/route.test.ts`
+  - 회사 등록 응답 구조와 파일 경로 차단을 확인하는 최소 테스트 추가
+- 운영 점검 문서 추가
+  - `docs/operations_runbook.md`
+  - 회사 등록, run, 보고서, Agent, 공통 로그 키 확인 순서를 문서화
 
 현재 재시작 대상으로 보는 Phase:
 
-- `Phase 11 ~ Phase 18`
+- `Phase 16`
 
 현재 다음 시작점:
 
-- `Phase 11. 운영 진입 화면 연결`
+- `Phase 16. 보조 기능 확장`
 
 현재 저장소 기준 실제 상태:
 

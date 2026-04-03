@@ -1,10 +1,29 @@
+import { CompanySelectionRequired } from "@/components/company-selection-required";
 import { PipelineConsole } from "@/components/pipeline-console";
 import { listPipelineRunSnapshots } from "@/lib/server/pipeline/run-monitor";
+import { getPhase11CompanySnapshot, resolveSelectedCompanyKey } from "@/lib/server/console/company-context";
 
-const DEFAULT_COMPANY_KEY = process.env.OPS_COMPANY_KEY?.trim() || "hangyeol_pharma";
+export default async function PipelinePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ company?: string }>;
+}) {
+  const params = await searchParams;
+  const { companies, selectedCompanyKey } = await resolveSelectedCompanyKey(params.company);
+  if (!selectedCompanyKey) {
+    return <CompanySelectionRequired companies={companies} returnPath="/pipeline" />;
+  }
+  const [runs, snapshot] = await Promise.all([
+    listPipelineRunSnapshots(selectedCompanyKey, 12),
+    getPhase11CompanySnapshot(selectedCompanyKey),
+  ]);
 
-export default async function PipelinePage() {
-  const runs = await listPipelineRunSnapshots(DEFAULT_COMPANY_KEY, 12);
-
-  return <PipelineConsole companyKey={DEFAULT_COMPANY_KEY} initialRuns={runs} />;
+  return (
+    <PipelineConsole
+      companyKey={selectedCompanyKey}
+      companyName={snapshot.company.companyName}
+      intake={snapshot.intake}
+      initialRuns={runs}
+    />
+  );
 }

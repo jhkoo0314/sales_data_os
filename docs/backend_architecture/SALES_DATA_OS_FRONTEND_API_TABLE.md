@@ -48,7 +48,7 @@
 | API | 메서드 | 프론트에서 언제 호출 | 요청값 | 응답 핵심 | 비고 |
 | --- | --- | --- | --- | --- | --- |
 | `/api/companies` | `GET` | 회사 선택 드롭다운 진입 시 | 없음 | `items[]`, `company_key`, `company_name` | 최초 로딩용 |
-| `/api/companies` | `POST` | 회사 등록 저장 시 | `company_key`, `company_name` | 저장 결과, 회사 기본 정보 | 중복 key 방지 필요 |
+| `/api/companies` | `POST` | 회사 등록 저장 시 | `company_name` | 저장 결과, 회사 기본 정보 | `company_key`는 서버가 랜덤 6자리 숫자로 생성 |
 | `/api/companies/{company_key}` | `GET` | 특정 회사 정보 확인 시 | path: `company_key` | 회사 상세 정보 | 선택 후 상단 카드용 |
 
 ### 2-2. 입력 업로드 API

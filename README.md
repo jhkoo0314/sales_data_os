@@ -1,182 +1,69 @@
 # Sales Data OS Web
 
-현재 이 저장소는 `Sales Data OS` 웹 앱을 루트에서 바로 개발하기 위한 작업 공간이다.
+이 저장소는 `Sales Data OS` 운영 웹 앱의 현재 작업 기준 저장소입니다.
 
-핵심 방향은 단순하다.
+핵심 원칙은 단순합니다.
 
-- 계산은 프론트가 하지 않는다
-- 웹은 운영 화면을 맡는다
-- 데이터/메타는 `Supabase`
-- 장기 실행은 `Python polling worker`
-- 패키지 매니저는 `pnpm`
-- 현재 우선순위는 `화면 추가`보다 `백엔드 구현`
+- 계산은 웹이 하지 않습니다.
+- KPI 계산, validation, builder 산출은 Python/worker 결과를 기준으로 봅니다.
+- 웹은 회사 선택, 업로드, 실행, 상태 추적, 결과 확인, 보고서 열람, 해석을 맡습니다.
+- 모든 문맥은 `company_key`와 `run_id` 기준으로 유지합니다.
 
 ## 현재 상태
 
-현재 구현 진행사항은 아래 문서만 기준으로 본다.
+현재 공식 기준으로 완료된 단계:
 
-- 현재 진행 문서: [`docs/current_implementation_status.md`](C:\sales_os\docs\current_implementation_status.md)
+- `Phase 1 ~ Phase 15`
+- `Phase 17`
+- `Phase 18`
 
-지금까지 준비된 것:
+현재 다음 시작점:
 
-- 루트 기준 `Next.js` 기본 실행 환경
-- 핵심 의존성 설치 완료
-- 문서 동기화 완료
-- 디자인 가이드 및 HTML 시안 정리
-- 핵심 페이지 기본 뼈대 구현
-- `Phase 1 ~ Phase 9` 공식 완료
-- 백엔드 로직 설계 문서 완료
-- Python/worker 의존성 파일 정리
-- 보고서 템플릿 검토 및 패키지 기준 정리
-- 원본 raw와 `monthly_raw` 입력 데이터 유지
-- 재생성 가능한 산출물 초기화 완료
-  - `data/standardized`
-  - `data/validation`
-  - 회사별 `_intake_staging`
-  - 회사별 `_onboarding`
-- 기존 TypeScript 백엔드 구현 삭제 완료
-  - `Phase 4 ~ Phase 9`에 해당하던 TS 서버 로직
-  - 관련 API 라우트
-- Python 백엔드 재구현 진행
-  - `Phase 4` intake 완료
-  - `Phase 5` normalization 완료
-  - `Phase 5-1` dirty raw / monthly merge 완료
-  - `Phase 6` KPI/result asset 완료
-  - `Phase 7` validation 완료
-  - `Phase 8` payload 완료
-  - `Phase 9` builder preview 완료
-  - `scripts/` 구조를 기능별 폴더로 정리 완료
+- `Phase 16. 보조 기능 확장`
 
-다음 구현 우선순위:
+현재 구현된 큰 흐름:
 
-- `Phase 11` 운영 진입 화면 연결
+1. 회사 등록
+   - 회사 이름만 입력하면 서버가 랜덤 `6자리 숫자` `company_key`를 생성
+2. 회사 선택
+   - 기본 회사 자동 선택 없음
+   - 사용자가 항상 `company_key`를 선택해서 들어감
+3. Upload / Pipeline
+   - 실제 source / intake / run 데이터 기준으로 동작
+4. Run Detail
+   - 단계 상태, validation, RADAR 우선순위, 다음 행동 표시
+5. Reports / Artifacts
+   - 실제 저장된 결과 파일과 builder preview HTML 연결
+6. Agent
+   - 현재 회사와 run 기준으로만 Gemini 해석 응답 제공
+7. 운영 안정화
+   - 공통 로딩/오류 화면
+   - 운영 로그 키
+   - 기본 API 테스트
+   - 운영 런북 문서
 
-`2026-04-03` 최신 진행 메모:
+## 지금 바로 볼 문서
 
-- `Phase 10` 구현 완료
-  - `workers/run_worker.py`
-  - `workers/services/run_executor.py`
-  - `workers/services/status_updater.py`
-  - `pending -> running -> completed/failed` 상태 갱신 연결
-  - worker run 선점 처리 추가
-  - 지원하지 않는 `execution_mode` 실패 처리 추가
-- Supabase 스키마 마이그레이션 완료
-  - 기준 파일: `supabase/sales_os_supabase_schema.sql`
-  - 핵심 테이블 확인: `pipeline_runs`, `pipeline_run_steps`, `runs`, `run_steps`, `run_artifacts`, `run_report_context`, `agent_chat_logs`, `company_registry`
-- 테스트 run 1회 실행으로 DB 저장 확인
-  - `pipeline_runs` 상태 갱신 확인
-  - `pipeline_run_steps` 단계 기록 저장 확인
-  - builder 단계 path 이슈 수정 후 `PASS` 확인
-- 파이프라인 화면과 run detail 화면에 Phase 10 데이터 연결 시작
-  - run 접수 API: `app/api/companies/[companyKey]/pipeline-runs/route.ts`
-  - run 상세 API: `app/api/companies/[companyKey]/pipeline-runs/[runKey]/route.ts`
-  - `Pipeline`에서 run 접수 및 polling 연결
-  - `Run Detail`에서 `pipeline_runs`, `pipeline_run_steps` polling 연결
+- 현재 구현 상태: [docs/current_implementation_status.md](C:\sales_os\docs\current_implementation_status.md)
+- 구현 순서 / 체크: [docs/task.md](C:\sales_os\docs\task.md)
+- 운영 점검 문서: [docs/operations_runbook.md](C:\sales_os\docs\operations_runbook.md)
+- 문서 안내: [docs/README.md](C:\sales_os\docs\README.md)
 
-중요:
+## 중요한 구현 원칙
 
-- 현재 저장소는 `Phase 10 완료` 이후 `Phase 11 ~ Phase 12` 프론트 연결로 넘어가는 상태다
-- 공식 계산, validation, builder 입력은 TypeScript 재구현이 아니라 원본 Python 로직을 단일 소스로 사용해야 한다
-- 산출 경로는 현재 기준으로 아래를 사용한다
-  - `data/standard/{company_key}/...`
-  - `data/validation/{company_key}/...`
-
-## 주요 문서
-
-- 현재 구현 진행 문서: [`docs/current_implementation_status.md`](C:\sales_os\docs\current_implementation_status.md)
-- 구현 계획: [`docs/task.md`](C:\sales_os\docs\task.md)
-- 디자인 시스템: [`docs/08_design_system.md`](C:\sales_os\docs\08_design_system.md)
-- Antigravity용 디자인 브리프: [`docs/11_antigravity_html_design_brief.md`](C:\sales_os\docs\11_antigravity_html_design_brief.md)
-- 디자인 예시 HTML: [`docs/ui/design_guide`](C:\sales_os\docs\ui\design_guide)
-- 보고서 템플릿 의존성: [`docs/12_report_template_dependencies.md`](C:\sales_os\docs\12_report_template_dependencies.md)
-- 백엔드 로직 요청서: [`docs/13_backend_logic_request_prompt.md`](C:\sales_os\docs\13_backend_logic_request_prompt.md)
-- KPI / result asset 조사: [`docs/summary/phase6_kpi_engine_and_result_asset_research_20260331.md`](C:\sales_os\docs\summary\phase6_kpi_engine_and_result_asset_research_20260331.md)
-- validation / payload 조사: [`docs/summary/original_project_result_asset_payload_artifact_research_20260331.md`](C:\sales_os\docs\summary\original_project_result_asset_payload_artifact_research_20260331.md)
+- `TypeScript`는 KPI를 계산하지 않음
+- `Builder`는 render-only
+- `RADAR`는 새 계산기가 아니라, 이미 검증된 결과를 읽는 우선순위 해석 레이어
+- `Agent`는 일반 채팅이 아니라 현재 run 기준 운영 해석 도구
 
 ## 기술 스택
 
 - `Next.js 16`
 - `React 19`
 - `TypeScript`
-- `Tailwind CSS 4`
-- `Zustand`
-- `TanStack Query`
-- `React Hook Form`
-- `Zod`
 - `Supabase`
 - `Python polling worker`
-
-## 페이지 흐름
-
-현재 기준 페이지 흐름은 아래와 같다.
-
-1. `Workspace`
-2. `Upload`
-3. `Pipeline`
-4. `Artifacts`
-5. `Reports`
-6. `Run Detail`
-7. `Agent`
-
-설명:
-
-- `Run Detail`은 상단 메뉴보다 경로로 들어가는 상세 페이지 성격이 강하다
-- `Agent`는 가장 마지막에 구현할 전략 기능이다
-
-## 백엔드 우선순위
-
-현재 기준으로는 `Phase 11`부터
-원본 Python 백엔드 흐름을 웹 화면과 정확히 연결하는 것이 우선이다.
-
-`입력 -> 검증 -> 정규화 -> KPI 계산 -> validation -> result asset / payload -> builder`
-
-현재 해석:
-
-- 업로드 입구와 원본 raw 저장 구조는 남아 있다
-- 기존 TypeScript 백엔드 구현은 삭제했다
-- Python intake / merge / staging / normalization은 다시 구현했다
-- 다음 구현 시작점은 `Phase 11`이다
-
-현재 스크립트 구조:
-
-- `scripts/intake/`
-- `scripts/normalization/`
-- `scripts/smoke/`
-- `scripts/_shared/`
-
-중요한 원칙:
-
-- 앞단 `검증`은 입력 파일 점검
-- 뒤단 `validation`은 KPI 결과 검증과 전달 판단
-- `Builder`는 계산하지 않고 payload만 읽는다
-- 공식 계산과 병합/정규화 절차는 Python 로직을 기준으로 맞춘다
-
-공식 모듈 구조는 아래 `9개`로 본다.
-
-- `intake`
-- `kpi`
-- `crm`
-- `sandbox`
-- `territory`
-- `prescription`
-- `validation`
-- `radar`
-- `builder`
-
-주의:
-
-- 운영 화면과 결과에서 겉으로 드러나는 것은 `5개 모듈`이다
-  - `crm`
-  - `sandbox`
-  - `prescription`
-  - `territory`
-  - `radar`
-- 나머지 `4개 모듈`은 내부 엔진이다
-  - `intake`
-  - `kpi`
-  - `validation`
-  - `builder`
-- 시스템 설명은 항상 `9개 모듈` 기준으로, 화면 설명은 `겉으로 보이는 5개 모듈` 기준으로 말한다
+- `pnpm`
 
 ## 실행 명령
 
@@ -186,22 +73,43 @@
 pnpm dev
 ```
 
-프로덕션 빌드 확인:
-
-```bash
-pnpm build
-```
-
 타입 체크:
 
 ```bash
 pnpm typecheck
 ```
 
-## 작업 원칙
+빌드 확인:
 
-- KPI 계산은 프론트에서 하지 않는다
-- 상태는 설명 문장과 함께 보여준다
-- `company_key`와 `run_id` 문맥을 항상 유지한다
-- 디자인 HTML은 복붙하지 않고 컴포넌트로 분해한다
-- 사용자는 비개발자 관점이 강하므로 설명은 쉽게 한다
+```bash
+pnpm build
+```
+
+기본 테스트 예시:
+
+```bash
+pnpm test app/api/companies/route.test.ts app/api/companies/[companyKey]/files/route.test.ts
+```
+
+## 환경 변수
+
+예시 파일:
+
+- [\.env.example](C:\sales_os\.env.example)
+
+핵심 값:
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `GEMINI_API_KEY`
+- 선택: `GEMINI_MODEL`
+
+현재 Agent 기본 모델:
+
+- `gemini-3.1-flash-lite-preview`
+
+## 참고
+
+- 회사 선택 없이 화면에 들어오면 자동으로 아무 회사도 잡지 않습니다.
+- 먼저 회사 등록 또는 회사 선택이 필요합니다.
+- 남아 있는 Turbopack 경고는 동적 파일 읽기 범위 경고이며, 현재 기능 동작과는 별개입니다.

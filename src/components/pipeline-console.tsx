@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Check, FileJson, Lock, Play, RefreshCw, ShieldCheck, TriangleAlert } from "lucide-react";
 
 import { StatusBadge } from "@/components/status-badge";
+import type { IntakeSnapshot } from "@/lib/shared/intake-status";
+import { formatAnalysisWindow, intakeLabelFromStatus, intakeToneFromStatus } from "@/lib/shared/intake-status";
 import type { PipelineRunSnapshot } from "@/lib/server/pipeline/run-monitor";
 
 const modeCards = [
@@ -38,9 +40,13 @@ function toneFromRun(run: PipelineRunSnapshot | null) {
 
 export function PipelineConsole({
   companyKey,
+  companyName,
+  intake,
   initialRuns,
 }: {
   companyKey: string;
+  companyName: string;
+  intake: IntakeSnapshot | null;
   initialRuns: PipelineRunSnapshot[];
 }) {
   const [runs, setRuns] = useState(initialRuns);
@@ -48,6 +54,8 @@ export function PipelineConsole({
   const [selectedMode, setSelectedMode] = useState("integrated_full");
   const [isPending, beginTransition] = useTransition();
   const latestRun = runs[0] ?? null;
+  const canStartRun = Boolean(intake?.ready_for_adapter);
+  const companyQuery = `?company=${encodeURIComponent(companyKey)}`;
 
   useEffect(() => {
     if (!shouldPoll(runs)) {
@@ -74,6 +82,13 @@ export function PipelineConsole({
   }, [companyKey, runs]);
 
   function handleStartRun() {
+    if (!canStartRun) {
+      setRequestError(
+        intake?.findings[0] ?? "아직 intake 검토가 끝나지 않아 run을 바로 접수할 수 없습니다. Upload 화면에서 부족한 입력을 먼저 확인해 주세요.",
+      );
+      return;
+    }
+
     beginTransition(() => {
       void fetch(`/api/companies/${companyKey}/pipeline-runs`, {
         method: "POST",
@@ -113,10 +128,47 @@ export function PipelineConsole({
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-slate-900">Pipeline 실행 관제</h1>
             <p className="mt-2 text-[13px] font-medium tracking-wide text-slate-500">
-              현재 회사는 <span className="font-mono text-slate-700">{companyKey}</span> 입니다. 웹은 실행을 접수하고,
-              계산은 worker가 처리합니다.
+              현재 회사는 <span className="font-mono text-slate-700">{companyKey}</span> ({companyName}) 입니다.
+              웹은 실행을 접수하고, 계산은 worker가 처리합니다.
             </p>
           </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">실행 준비 상태</p>
+              <h3 className="mt-1 text-sm font-bold text-slate-900">
+                {canStartRun ? "필수 입력이 준비되어 run을 접수할 수 있습니다." : "아직 사람 확인이 필요한 입력이 남아 있습니다."}
+              </h3>
+            </div>
+            <StatusBadge tone={intakeToneFromStatus(intake?.status)}>
+              {intakeLabelFromStatus(intake?.status)}
+            </StatusBadge>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">공통 분석 구간</p>
+              <p className="mt-2 text-sm font-bold text-slate-900">{formatAnalysisWindow(intake)}</p>
+            </div>
+            <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">자동 보정</p>
+              <p className="mt-2 text-sm font-bold text-slate-900">{intake?.fixes.length ?? 0}건</p>
+            </div>
+            <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">검토 항목</p>
+              <p className="mt-2 text-sm font-bold text-slate-900">{intake?.findings.length ?? 0}건</p>
+            </div>
+          </div>
+          <p className="mt-4 text-[13px] leading-relaxed text-slate-600">
+            {intake?.analysis_summary_message ??
+              "아직 intake 결과가 없어 실행 가능 여부를 확정할 수 없습니다. Upload 화면에서 입력 상태를 먼저 확인해 주세요."}
+          </p>
+          {!canStartRun ? (
+            <p className="mt-2 text-[13px] font-medium text-amber-700">
+              {intake?.findings[0] ?? "Upload 화면에서 부족한 의미 컬럼이나 source 구성을 먼저 보완해야 합니다."}
+            </p>
+          ) : null}
         </div>
 
         <div className="flex items-center justify-between rounded-xl border border-slate-200 border-l-4 border-emerald-500 bg-white p-5 shadow-sm">
@@ -161,7 +213,7 @@ export function PipelineConsole({
           <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
           <p className="text-[13px] font-medium leading-relaxed text-amber-900">
             현재 worker registry에는 <span className="font-mono">integrated_full</span> 모드만 연결되어 있습니다.
-            부분 실행 카드는 설명용이며, 아직 시작 버튼을 누를 수 없습니다.
+            부분 실행 카드는 설명용이며, 아직 시작 버튼을 누를 수 없습니다. 실제 실행 가능 여부는 위의 intake 준비 상태를 먼저 따릅니다.
           </p>
         </div>
 
@@ -214,11 +266,11 @@ export function PipelineConsole({
           <button
             type="button"
             onClick={handleStartRun}
-            disabled={isPending}
+            disabled={isPending || !canStartRun}
             className="flex flex-[2] items-center justify-center gap-2 rounded-lg bg-slate-900 py-4 text-sm font-bold text-white shadow-xl shadow-slate-900/20 transition-transform active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
           >
             {isPending ? <RefreshCw className="h-[18px] w-[18px] animate-spin" /> : <Play className="h-[18px] w-[18px]" />}
-            {isPending ? "Run 접수 중..." : "통합 실행 접수"}
+            {isPending ? "Run 접수 중..." : canStartRun ? "통합 실행 접수" : "입력 검토 후 실행 가능"}
           </button>
         </div>
       </section>
@@ -245,7 +297,7 @@ export function PipelineConsole({
                 <p className="font-mono text-xs font-bold text-emerald-600">{latestRun?.currentStepLabel ?? "대기"}</p>
               </div>
               {latestRun ? (
-                <Link href={`/runs/${latestRun.runKey}`} className="text-[11px] font-semibold text-sky-600 hover:underline">
+                <Link href={`/runs/${latestRun.runKey}${companyQuery}`} className="text-[11px] font-semibold text-sky-600 hover:underline">
                   상세 보기
                 </Link>
               ) : null}

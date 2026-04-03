@@ -71,10 +71,13 @@
 
 ```json
 {
-  "company_key": "company_000003",
   "company_name": "신규제약"
 }
 ```
+
+- 동작 원칙
+  - `company_key`는 사용자가 직접 넣지 않는다
+  - 등록 시 서버가 랜덤 `6자리 숫자`를 생성한다
 
 ### `GET /api/companies/{company_key}`
 
